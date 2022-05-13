@@ -1,0 +1,18 @@
+{
+  "request": {
+    "transportId": "961c2b92-4183-4c80-a090-d2b0ab5dc4ef",
+    "dtlsParameters": {
+      "role": "client",
+      "fingerprints": [
+        {
+          "algorithm": "sha-256",
+          "value": "10:FF:A0:E3:9B:69:A5:A7:81:9E:A8:2A:48:41:7B:63:55:95:BF:FC:A2:77:94:A2:39:29:7E:07:3A:27:74:C4"
+        }
+      ]
+    },
+    "peerId": "cf9-284-7589"
+  },
+  "response": {
+    "connected": true
+  }
+}

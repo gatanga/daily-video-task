@@ -1,0 +1,9 @@
+{
+  "request": {
+    "consumerId": "10e94202-4627-4d27-8337-4a456ea6ae83",
+    "peerId": "cf9-284-7589"
+  },
+  "response": {
+    "resumed": true
+  }
+}

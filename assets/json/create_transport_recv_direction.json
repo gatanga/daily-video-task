@@ -1,0 +1,60 @@
+{
+  "request": {
+    "direction": "recv",
+    "peerId": "cf9-284-7589"
+  },
+  "response": {
+    "transportOptions": {
+      "id": "961c2b92-4183-4c80-a090-d2b0ab5dc4ef",
+      "iceParameters": {
+        "iceLite": true,
+        "password": "0y1yb4bvrik7qw93tberwlc0cv503xmk",
+        "usernameFragment": "71wp6vqmm57mxrgu"
+      },
+      "iceCandidates": [
+        {
+          "foundation": "udpcandidate",
+          "ip": "127.0.0.1",
+          "port": 47448,
+          "priority": 1076558079,
+          "protocol": "udp",
+          "type": "host"
+        },
+        {
+          "foundation": "tcpcandidate",
+          "ip": "127.0.0.1",
+          "port": 42598,
+          "priority": 1076302079,
+          "protocol": "tcp",
+          "tcpType": "passive",
+          "type": "host"
+        }
+      ],
+      "dtlsParameters": {
+        "fingerprints": [
+          {
+            "algorithm": "sha-224",
+            "value": "06:C6:89:96:29:FA:DA:2F:59:36:F9:D0:52:03:F9:A5:A1:A8:41:A5:F9:47:1B:7B:1D:49:F4:B2"
+          },
+          {
+            "algorithm": "sha-256",
+            "value": "66:D7:65:14:E8:33:5D:3A:8F:B7:A6:38:92:88:73:D0:73:92:82:5D:C4:9B:FC:1D:E9:D9:19:74:49:BA:12:DF"
+          },
+          {
+            "algorithm": "sha-512",
+            "value": "FE:9D:D9:40:60:B9:34:FF:8C:15:D3:86:85:47:35:46:04:5D:C3:6E:D1:4B:12:E5:4D:EC:A1:AC:A7:E7:C4:F1:37:2E:29:A1:95:16:41:F5:58:14:C2:32:25:07:42:BE:A2:44:99:13:68:61:BE:12:A8:B2:A5:8E:1E:74:85:C7"
+          },
+          {
+            "algorithm": "sha-1",
+            "value": "B4:73:8A:99:08:E3:BE:1E:B8:CB:7B:B6:DA:39:B9:45:E1:99:32:70"
+          },
+          {
+            "algorithm": "sha-384",
+            "value": "39:76:83:BB:63:AE:C2:DA:8F:EA:1C:C6:E4:B8:F5:38:5C:88:48:1A:4A:E4:57:8D:A3:79:B4:8D:03:7E:CD:22:28:7D:42:23:40:6A:73:13:B7:B5:D7:77:BE:4D:C5:3F"
+          }
+        ],
+        "role": "auto"
+      }
+    }
+  }
+}

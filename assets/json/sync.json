@@ -1,0 +1,74 @@
+{
+  "request": {"peerId":"cf9-284-7589"},
+  "response": {
+    "peers": {
+      "a82-171-a712": {
+        "joinTs": 1651874413434,
+        "lastSeenTs": 1651874425498,
+        "media": {
+          "cam-video": {
+            "paused": false,
+            "encodings": [
+              {
+                "active": true,
+                "scaleResolutionDownBy": 4,
+                "maxBitrate": 96000,
+                "rid": "r0",
+                "scalabilityMode": "S1T3",
+                "dtx": false
+              },
+              {
+                "active": true,
+                "scaleResolutionDownBy": 1,
+                "maxBitrate": 680000,
+                "rid": "r1",
+                "scalabilityMode": "S1T3",
+                "dtx": false
+              }
+            ]
+          },
+          "cam-audio": {
+            "paused": false,
+            "encodings": [
+              {
+                "ssrc": 804431612,
+                "dtx": false
+              }
+            ]
+          }
+        },
+        "consumerLayers": {},
+        "stats": {
+          "925704ad-d619-4181-97de-86918f74d0ce": [
+            {
+              "bitrate": 93559,
+              "fractionLost": 0,
+              "jitter": 1,
+              "score": 10,
+              "rid": "r0"
+            },
+            {
+              "bitrate": 190781,
+              "fractionLost": 0,
+              "jitter": 4,
+              "score": 10,
+              "rid": "r1"
+            }
+          ]
+        }
+      },
+      "cf9-284-7589": {
+        "joinTs": 1651874425039,
+        "lastSeenTs": 1651874426076,
+        "media": {},
+        "consumerLayers": {},
+        "stats": {}
+      }
+    },
+    "activeSpeaker": {
+      "producerId": "54e2a8d4-f928-4da9-8430-5cb04b1092d5",
+      "volume": -72,
+      "peerId": "a82-171-a712"
+    }
+  }
+}

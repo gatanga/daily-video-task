@@ -1,0 +1,71 @@
+{
+  "request": {
+    "transportId": "f494bf2e-d7cb-4e32-bc68-b99ce246d7ad",
+    "kind": "audio",
+    "rtpParameters": {
+      "codecs": [
+        {
+          "mimeType": "audio/opus",
+          "payloadType": 111,
+          "clockRate": 48000,
+          "channels": 2,
+          "parameters": {
+            "minptime": 10,
+            "useinbandfec": 1
+          },
+          "rtcpFeedback": [
+            {
+              "type": "transport-cc",
+              "parameter": ""
+            }
+          ]
+        }
+      ],
+      "headerExtensions": [
+        {
+          "uri": "urn:ietf:params:rtp-hdrext:sdes:mid",
+          "id": 4,
+          "encrypt": false,
+          "parameters": {}
+        },
+        {
+          "uri": "http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time",
+          "id": 2,
+          "encrypt": false,
+          "parameters": {}
+        },
+        {
+          "uri": "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01",
+          "id": 3,
+          "encrypt": false,
+          "parameters": {}
+        },
+        {
+          "uri": "urn:ietf:params:rtp-hdrext:ssrc-audio-level",
+          "id": 1,
+          "encrypt": false,
+          "parameters": {}
+        }
+      ],
+      "encodings": [
+        {
+          "ssrc": 928642236,
+          "dtx": false
+        }
+      ],
+      "rtcp": {
+        "cname": "m0w69Mt/OOLNBH8r",
+        "reducedSize": true
+      },
+      "mid": "1"
+    },
+    "paused": false,
+    "appData": {
+      "mediaTag": "cam-audio"
+    },
+    "peerId": "cf9-284-7589"
+  },
+  "response": {
+    "id": "c9f43f1e-9927-4c4c-a2b5-3c65d7ddf49c"
+  }
+}
