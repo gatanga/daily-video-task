@@ -1,7 +1,6 @@
 package utils.webrtc
 
 import android.content.Context
-import android.util.Log
 import org.mediasoup.droid.Logger
 import org.webrtc.*
 import providers.webrtc.EglBaseProvider
@@ -128,6 +127,14 @@ class WebRtcMediaUtils {
         override fun onCameraClosed() {
             Logger.d(TAG, "onCameraClosed")
         }
+    }
+
+    fun clear() {
+        audioSource?.dispose()
+        audioSource = null
+        videoSource?.dispose()
+        videoSource = null
+        mediaStream.dispose()
     }
 
     companion object {

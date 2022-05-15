@@ -7,15 +7,16 @@
     tools:context=".CallActivity">
 
     <org.webrtc.SurfaceViewRenderer
-        android:layout_weight="1"
         android:id="@+id/localVideoView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_gravity="bottom" />
+        android:layout_gravity="bottom"
+        android:layout_weight="1" />
 
     <org.webrtc.SurfaceViewRenderer
-        android:layout_weight="1"
         android:id="@+id/remoteVideoView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:visibility="gone" />
 </androidx.appcompat.widget.LinearLayoutCompat>

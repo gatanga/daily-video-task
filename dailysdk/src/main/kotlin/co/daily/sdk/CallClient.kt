@@ -6,6 +6,8 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import android.util.Log
+import android.view.View
+import androidx.work.WorkManager
 import data.network.models.*
 import data.result.RoomApiResult
 import domain.repositories.ApiRepository
@@ -15,13 +17,14 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import org.mediasoup.droid.*
 import org.webrtc.AudioTrack
-import org.webrtc.RendererCommon
 import org.webrtc.SurfaceViewRenderer
 import org.webrtc.VideoTrack
 import providers.network.RetrofitServiceProvider.Companion.json
 import providers.repository.ApiRepositoryProvider
 import providers.webrtc.EglBaseProvider
+import providers.webrtc.PeerConnectionProvider
 import session.Session
+import utils.webrtc.DailyAudioManager
 import utils.webrtc.WebRtcMediaUtils
 
 class CallClient(private val context: Context) {
@@ -29,20 +32,24 @@ class CallClient(private val context: Context) {
     private lateinit var session: Session
     private val ioScope = CoroutineScope(Job() + Dispatchers.IO)
     private val mainScope = CoroutineScope(Job() + Dispatchers.Main)
-    private lateinit var repository: ApiRepository
+    private var repository: ApiRepository
     private lateinit var mediasoupDevice: Device
     private var sendTransport: SendTransport? = null
     private var recvTransport: RecvTransport? = null
     private var audioProducer: Producer? = null
     private var videoProducer: Producer? = null
-    private lateinit var workHandler: Handler // worker looper handler.
-    private lateinit var mainHandler: Handler // main looper handler.
+    private var workHandler: Handler // worker looper handler.
+    private var mainHandler: Handler // main looper handler.
     private lateinit var localVideoView: SurfaceViewRenderer
     private lateinit var remoteVideoView: SurfaceViewRenderer
     private var localVideoTrack: VideoTrack? = null
     private var localAudioTrack: AudioTrack? = null
-    private val remotePeers = mutableMapOf<String, Peer>()
     private val consumers = mutableMapOf<String, MediaConsumer>()
+    private var countDownTimer: CountDownTimer? = null
+    private var recvTransportConnected = false
+    private var audioManager: DailyAudioManager? = null
+    private var remoteAudioAllowed = true
+    private var remoteVideoAllowed = true
 
     init {
         reset()
@@ -52,6 +59,7 @@ class CallClient(private val context: Context) {
         workerThread.start()
         workHandler = Handler(workerThread.looper)
         mainHandler = Handler(Looper.getMainLooper())
+        audioManager = DailyAudioManager.create(context = context)
     }
 
     private fun reset() {
@@ -61,17 +69,17 @@ class CallClient(private val context: Context) {
     fun initializeLocalView(localView: SurfaceViewRenderer) {
         localVideoView = localView
         localVideoView.init(EglBaseProvider.instance().getEglBase().eglBaseContext, null)
-        localVideoView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
-        localVideoView.setEnableHardwareScaler(false)
+//        localVideoView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+//        localVideoView.setEnableHardwareScaler(false)
         localVideoView.setMirror(true)
     }
 
     fun initializeRemoteView(remoteView: SurfaceViewRenderer) {
         remoteVideoView = remoteView
         remoteVideoView.init(EglBaseProvider.instance().getEglBase().eglBaseContext, null)
-        remoteVideoView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
-        remoteVideoView.setEnableHardwareScaler(false)
-        remoteVideoView.setMirror(true)
+//        remoteVideoView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+//        remoteVideoView.setEnableHardwareScaler(false)
+//        remoteVideoView.setMirror(true)
     }
 
     fun createLocalMediaTracks() {
@@ -129,6 +137,7 @@ class CallClient(private val context: Context) {
     @OptIn(ExperimentalSerializationApi::class)
     suspend fun joinRoom() {
         Session.reset()
+        audioManager?.setAudioDevice(DailyAudioManager.AudioDevice.SPEAKER_PHONE)
         session = Session.instance()
         repository.joinRoom(request = BaseRequest(peerId = session.peerId))
             .collect {
@@ -150,12 +159,12 @@ class CallClient(private val context: Context) {
     }
 
     private fun startSyncWork() {
-        //FIXME -- Fix the periodic worker
         /*val syncPeriodicWorker =
-            PeriodicWorkRequestBuilder<PeerSyncWorker>(15, TimeUnit.SECONDS).build()
+            PeriodicWorkRequestBuilder<PeerSyncWorker>(15, TimeUnit.SECONDS).addTag(WORKER_TAG)
+                .build()
         WorkManager.getInstance(context).enqueue(syncPeriodicWorker)*/
 
-        object : CountDownTimer(9_000_000_000L, 15_000L) {
+        countDownTimer = object : CountDownTimer(9_000_000_000L, 2_000L) {
             override fun onTick(millisUntilFinished: Long) {
                 runBlocking {
                     syncPeers()
@@ -176,7 +185,7 @@ class CallClient(private val context: Context) {
     @OptIn(ExperimentalSerializationApi::class)
     suspend fun createSendTransport() {
         repository.createTransport(
-            request = CreateTransportRequest(peerId = session.peerId, direction = "send")
+            request = CreateTransportRequest(peerId = session.peerId, direction = DIRECTION_SEND)
         ).collect {
             when (it) {
                 is RoomApiResult.Success -> {
@@ -205,6 +214,7 @@ class CallClient(private val context: Context) {
         ).collect {
             when (it) {
                 is RoomApiResult.Success -> {
+                    recvTransportConnected = true
                     Log.d(TAG, "connectTransport: success")
                 }
                 else -> Logger.e(TAG, "connectTransport: ", (it as RoomApiResult.Error).exception)
@@ -272,11 +282,19 @@ class CallClient(private val context: Context) {
     private suspend fun processRemoteAudio(remotePeerId: String, camAudio: CamAudio) {
         if (camAudio.paused) {
             consumers[remotePeerId]?.audioConsumer?.let {
-                it.pause()
-                pauseConsumer(consumerId = it.id)
+                if (!it.isPaused) {
+                    it.pause()
+                    pauseConsumer(consumerId = it.id)
+                }
             }
         } else {
             if (!consumers.containsKey(remotePeerId) || consumers[remotePeerId]?.audioConsumer == null) {
+                if (!recvTransportConnected) {
+                    return
+                }
+                if (!remoteAudioAllowed) {
+                    return
+                }
                 repository.receiveTrack(
                     request = ReceiveTrackRequest(
                         mediaTag = AUDIO_MEDIA_TAG,
@@ -318,9 +336,15 @@ class CallClient(private val context: Context) {
                 }
             } else {
                 consumers[remotePeerId]?.audioConsumer?.let {
-                    if (it.isPaused) {
+                    if (it.isPaused && !camAudio.paused) {
                         resumeConsumer(consumerId = it.id)
                         it.resume()
+                    } else if (!it.isPaused && camAudio.paused) {
+                        if (!remoteAudioAllowed) {
+                            return
+                        }
+                        pauseConsumer(consumerId = it.id)
+                        it.pause()
                     }
                 }
             }
@@ -329,14 +353,26 @@ class CallClient(private val context: Context) {
 
     @OptIn(ExperimentalSerializationApi::class)
     private suspend fun processRemoteVideo(remotePeerId: String, camVideo: CamVideo) {
+        /*if (camVideo.paused == consumers[remotePeerId]?.videoConsumer?.isPaused) {
+            Log.d(TAG, "processRemoteVideo: No state change")
+            return
+        }*/
         if (camVideo.paused) {
             consumers[remotePeerId]?.videoConsumer?.let {
-                it.pause()
-                pauseConsumer(consumerId = it.id)
-                toggleVideoSink(remotePeerId = remotePeerId, enable = false)
+                if (!it.isPaused) {
+                    it.pause()
+                    pauseConsumer(consumerId = it.id)
+                    toggleVideoSink(remotePeerId = remotePeerId, enable = false)
+                }
             }
         } else {
             if (!consumers.containsKey(remotePeerId) || consumers[remotePeerId]?.videoConsumer == null) {
+                if (!recvTransportConnected) {
+                    return
+                }
+                if (!remoteVideoAllowed) {
+                    return
+                }
                 repository.receiveTrack(
                     request = ReceiveTrackRequest(
                         mediaTag = VIDEO_MEDIA_TAG,
@@ -351,7 +387,7 @@ class CallClient(private val context: Context) {
                                 val response = it.value
                                 val videoConsumer = runBlocking {
                                     recvTransport?.consume(
-                                        { videoConsumer ->
+                                        { /*videoConsumer ->
                                             videoConsumer.close()
                                             consumers[remotePeerId] =
                                                 consumers[remotePeerId]!!.copy(videoConsumer = null)
@@ -360,7 +396,7 @@ class CallClient(private val context: Context) {
                                             }
                                             runBlocking {
                                                 closeConsumer(consumerId = videoConsumer.id)
-                                            }
+                                            }*/
                                         },
                                         response.id, response.producerId, response.kind,
                                         json.encodeToString(response.rtpParameters), null
@@ -388,10 +424,17 @@ class CallClient(private val context: Context) {
                 }
             } else {
                 consumers[remotePeerId]?.videoConsumer?.let {
-                    if (it.isPaused) {
+                    if (it.isPaused && !camVideo.paused) {
+                        if (!remoteVideoAllowed) {
+                            return
+                        }
                         resumeConsumer(consumerId = it.id)
                         it.resume()
                         toggleVideoSink(remotePeerId = remotePeerId, enable = true)
+                    } else if (!it.isPaused && camVideo.paused) {
+                        pauseConsumer(consumerId = it.id)
+                        it.pause()
+                        toggleVideoSink(remotePeerId = remotePeerId, enable = false)
                     }
                 }
             }
@@ -420,14 +463,83 @@ class CallClient(private val context: Context) {
         }
     }
 
+    private suspend fun pauseProducer(producerId: String) {
+        repository.pauseProducer(
+            request = PauseProducerRequest(
+                peerId = session.peerId,
+                producerId = producerId
+            )
+        ).collect {
+            when (it) {
+                is RoomApiResult.Success -> {
+                    Log.d("$TAG pauseProducer: ", "Consumer: $producerId is paused")
+                }
+                else -> {
+                    Logger.e(
+                        TAG,
+                        "pauseProducer: ",
+                        (it as RoomApiResult.Error).exception
+                    )
+                }
+            }
+        }
+    }
+
+    private suspend fun resumeProducer(producerId: String) {
+        repository.resumeProducer(
+            request = ResumeProducerRequest(
+                peerId = session.peerId,
+                producerId = producerId
+            )
+        ).collect {
+            when (it) {
+                is RoomApiResult.Success -> {
+                    Log.d("$TAG resumeProducer: ", "Producer: $producerId is paused")
+                }
+                else -> {
+                    Logger.e(
+                        TAG,
+                        "resumeProducer: ",
+                        (it as RoomApiResult.Error).exception
+                    )
+                }
+            }
+        }
+    }
+
+    private suspend fun closeProducer(producerId: String) {
+        repository.closeProducer(
+            request = CloseProducerRequest(
+                peerId = session.peerId,
+                producerId = producerId
+            )
+        ).collect {
+            when (it) {
+                is RoomApiResult.Success -> {
+                    Log.d("$TAG closeProducer: ", "Producer: $producerId is closed")
+                }
+                else -> {
+                    Logger.e(
+                        TAG,
+                        "closeProducer: ",
+                        (it as RoomApiResult.Error).exception
+                    )
+                }
+            }
+        }
+    }
+
     private fun toggleVideoSink(remotePeerId: String, enable: Boolean) {
+        Log.d(TAG, "toggleVideoSink: $enable")
         val videoTrack =
             consumers[remotePeerId]?.videoConsumer?.track as VideoTrack?
         mainScope.launch {
             videoTrack?.setEnabled(enable)
             if (enable) {
+                remoteVideoView.visibility = View.VISIBLE
                 videoTrack?.addSink(remoteVideoView)
             } else {
+                remoteVideoView.visibility = View.GONE
                 videoTrack?.removeSink(remoteVideoView)
             }
         }
@@ -488,7 +600,7 @@ class CallClient(private val context: Context) {
             .collect {
                 when (it) {
                     is RoomApiResult.Success -> {
-                        it.value.peers.entries.forEachIndexed { index, entry ->
+                        it.value.peers.entries.forEachIndexed { _, entry ->
                             /*if ((entry.value.media.camAudio != null || entry.value.media.camVideo != null)
                                 && (consumers.isNotEmpty() || consumers.containsKey(entry.key))) {
                                 Log.d(
@@ -611,12 +723,158 @@ class CallClient(private val context: Context) {
         }
     }
 
+    private suspend fun toggleLocalAudio(enable: Boolean) {
+        if (enable) {
+            audioProducer?.let {
+                resumeProducer(producerId = it.id)
+                it.resume()
+            }
+        } else {
+            audioProducer?.let {
+                pauseProducer(producerId = it.id)
+                it.pause()
+            }
+        }
+    }
+
+    private suspend fun toggleLocalVideo(enable: Boolean) {
+        if (enable) {
+            videoProducer?.let {
+                resumeProducer(producerId = it.id)
+                it.resume()
+            }
+        } else {
+            videoProducer?.let {
+                pauseProducer(producerId = it.id)
+                it.pause()
+            }
+        }
+    }
+
+    private suspend fun toggleRemoteAudio(enable: Boolean) {
+        remoteAudioAllowed = enable
+        if (enable) {
+            consumers.values.firstOrNull()?.audioConsumer?.let {
+                resumeConsumer(consumerId = it.id)
+                it.resume()
+            }
+        } else {
+            consumers.values.firstOrNull()?.audioConsumer?.let {
+                pauseConsumer(consumerId = it.id)
+                it.pause()
+            }
+        }
+    }
+
+    private suspend fun toggleRemoteVideo(enable: Boolean) {
+        remoteVideoAllowed = enable
+        if (enable) {
+            consumers.values.firstOrNull()?.videoConsumer?.let {
+                resumeConsumer(consumerId = it.id)
+                it.resume()
+            }
+        } else {
+            consumers.values.firstOrNull()?.videoConsumer?.let {
+                pauseConsumer(consumerId = it.id)
+                it.pause()
+            }
+        }
+    }
+
+    suspend fun muteLocalAudio() {
+        toggleLocalAudio(enable = false)
+    }
+
+    suspend fun unMuteLocalAudio() {
+        toggleLocalAudio(enable = true)
+    }
+
+    suspend fun muteRemoteAudio() {
+        toggleRemoteAudio(enable = false)
+    }
+
+    suspend fun unMuteRemoteAudio() {
+        toggleRemoteAudio(enable = true)
+    }
+
+    suspend fun pauseLocalVideo() {
+        toggleLocalVideo(enable = false)
+        localVideoView.visibility = View.GONE
+    }
+
+    suspend fun unPauseLocalVideo() {
+        toggleLocalVideo(enable = true)
+        localVideoView.visibility = View.VISIBLE
+    }
+
+    suspend fun pauseRemoteVideo() {
+        toggleRemoteVideo(enable = false)
+        remoteVideoView.visibility = View.GONE
+    }
+
+    suspend fun unPauseRemoteVideo() {
+        toggleRemoteVideo(enable = true)
+        remoteVideoView.visibility = View.VISIBLE
+    }
+
+    private fun cancelWorkManager() {
+        WorkManager.getInstance(context).cancelAllWorkByTag(WORKER_TAG)
+    }
+
+    private suspend fun closeConsumers() {
+        consumers.forEach {
+            it.value.videoConsumer?.id?.let { id ->
+                closeConsumer(consumerId = id)
+            }
+            it.value.videoConsumer?.close()
+            it.value.audioConsumer?.id?.let { id ->
+                closeConsumer(consumerId = id)
+            }
+            it.value.audioConsumer?.close()
+        }
+    }
+
+    private suspend fun closeProducers() {
+        videoProducer?.let {
+            closeProducer(producerId = it.id)
+            it.close()
+            videoProducer = null
+        }
+
+        audioProducer?.let {
+            closeProducer(producerId = it.id)
+            it.close()
+            audioProducer = null
+        }
+    }
+
+    private fun closeTracks() {
+        localVideoTrack?.dispose()
+        localAudioTrack?.dispose()
+        localVideoView.release()
+        remoteVideoView.release()
+    }
+
+    fun clear() {
+        ioScope.launch {
+            audioManager?.close()
+            countDownTimer?.cancel()
+            WebRtcMediaUtils.instance().clear()
+            PeerConnectionProvider.instance().closePeerConnection()
+            cancelWorkManager()
+            closeConsumers()
+            closeProducers()
+            closeTracks()
+        }
+    }
+
     companion object {
         private const val TAG = "CallClient"
         private const val VIDEO_MEDIA_TAG = "cam-video"
         private const val AUDIO_MEDIA_TAG = "cam-audio"
         private const val DIRECTION_SEND = "send"
         private const val DIRECTION_RECV = "recv"
+        private const val WORKER_TAG = "PeerSyncWorker"
 
         @Volatile
         private var instance: CallClient? = null

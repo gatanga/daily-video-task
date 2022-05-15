@@ -8,11 +8,9 @@ class PeerConnectionProvider {
         PeerConnectionFactory.builder().createPeerConnectionFactory()
 
     fun closePeerConnection() {
-        if (peerConnectionFactory != null) {
-            peerConnectionFactory?.dispose()
-            peerConnectionFactory = null
-            reset()
-        }
+        peerConnectionFactory?.dispose()
+        peerConnectionFactory = null
+        reset()
     }
 
     companion object {

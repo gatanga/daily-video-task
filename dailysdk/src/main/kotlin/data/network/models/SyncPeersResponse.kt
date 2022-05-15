@@ -5,5 +5,5 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class SyncPeersResponse(
     val peers: HashMap<String, Peer>,
-    val activeSpeaker: ActiveSpeaker
+    val activeSpeaker: ActiveSpeaker?
 )
