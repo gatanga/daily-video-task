@@ -90,30 +90,29 @@ class CallClient(private val context: Context) {
     private fun createLocalAudioTrack() {
         runBlocking {
             WebRtcMediaUtils.instance().createAudioSource()
-            localAudioTrack = WebRtcMediaUtils.instance().createAudioTrack()
-            localAudioTrack?.setEnabled(true)
         }
+        localAudioTrack = WebRtcMediaUtils.instance().createAudioTrack()
+        localAudioTrack?.setEnabled(true)
     }
 
     private fun createLocalVideoTrack() {
         runBlocking {
             WebRtcMediaUtils.instance().createVideoSource(context = context)
-            localVideoTrack = WebRtcMediaUtils.instance().createVideoTrack()
-            localVideoTrack?.setEnabled(true)
-            localVideoTrack?.addSink(localVideoView)
         }
+        localVideoTrack = WebRtcMediaUtils.instance().createVideoTrack()
+        localVideoTrack?.setEnabled(true)
+        localVideoTrack?.addSink(localVideoView)
     }
 
     @OptIn(ExperimentalSerializationApi::class)
     fun produceVideo() {
         try {
-            videoProducer = runBlocking {
+            videoProducer =
                 sendTransport?.produce(
                     videoProduceListener,
                     localVideoTrack, null, null,
                     json.encodeToString(AppData(mediaTag = VIDEO_MEDIA_TAG))
                 )
-            }
         } catch (e: MediasoupException) {
             Logger.e(TAG, "produceVideo: ${e.message}")
         }
@@ -122,13 +121,12 @@ class CallClient(private val context: Context) {
     @OptIn(ExperimentalSerializationApi::class)
     fun produceAudio() {
         try {
-            audioProducer = runBlocking {
+            audioProducer =
                 sendTransport?.produce(
                     audioProduceListener,
                     localAudioTrack, null, null,
                     json.encodeToString(AppData(mediaTag = AUDIO_MEDIA_TAG))
                 )
-            }
         } catch (e: MediasoupException) {
             Logger.e("produceAudio", "${e.message}")
         }
@@ -146,9 +144,7 @@ class CallClient(private val context: Context) {
                         session.rtcpCapabilitiesJson =
                             json.encodeToString(it.value.routerRtpCapabilities)
                         mediasoupDevice = Device()
-                        runBlocking {
-                            mediasoupDevice.load(session.rtcpCapabilitiesJson)
-                        }
+                        mediasoupDevice.load(session.rtcpCapabilitiesJson)
                     }
                     else -> {
                         Logger.e(TAG, "joinRoom: ", (it as RoomApiResult.Error).exception)
@@ -191,9 +187,7 @@ class CallClient(private val context: Context) {
                 is RoomApiResult.Success -> {
                     session.sendTransportId = it.value.transportOptions.id
                     session.sendTransportJson = json.encodeToString(it.value)
-                    runBlocking {
-                        createDeviceSendTransport(it.value.transportOptions)
-                    }
+                    createDeviceSendTransport(it.value.transportOptions)
                 }
                 else -> {
                     Logger.e(TAG, "createSendTransport: ", (it as RoomApiResult.Error).exception)
@@ -229,11 +223,9 @@ class CallClient(private val context: Context) {
         ).collect {
             when (it) {
                 is RoomApiResult.Success -> {
-                    runBlocking {
-                        session.recvTransportId = it.value.transportOptions.id
-                        session.recvTransportJson = json.encodeToString(it.value)
-                        createDeviceRecvTransport(options = it.value.transportOptions)
-                    }
+                    session.recvTransportId = it.value.transportOptions.id
+                    session.recvTransportJson = json.encodeToString(it.value)
+                    createDeviceRecvTransport(options = it.value.transportOptions)
                 }
                 else -> {
                     Logger.e(
@@ -305,25 +297,22 @@ class CallClient(private val context: Context) {
                 ).collect {
                     when (it) {
                         is RoomApiResult.Success -> {
-                            runBlocking {
-                                val response = it.value
-                                consumers[remotePeerId] = MediaConsumer(
-                                    remotePeerId = remotePeerId,
-                                    audioConsumer = runBlocking {
-                                        recvTransport?.consume(
-                                            {
-
-                                            },
-                                            response.id, response.producerId, response.kind,
-                                            json.encodeToString(response.rtpParameters), null
-                                        )
+                            val response = it.value
+                            consumers[remotePeerId] = MediaConsumer(
+                                remotePeerId = remotePeerId,
+                                audioConsumer =
+                                recvTransport?.consume(
+                                    {
+                                        // FIXME -- We should close some consumer(s) here
                                     },
-                                    videoConsumer = consumers[remotePeerId]?.videoConsumer
-                                )
+                                    response.id, response.producerId, response.kind,
+                                    json.encodeToString(response.rtpParameters), null
+                                ),
+                                videoConsumer = consumers[remotePeerId]?.videoConsumer
+                            )
 
-                                consumers[remotePeerId]?.audioConsumer?.resume()
-                                resumeConsumer(consumerId = consumers[remotePeerId]?.audioConsumer?.id!!)
-                            }
+                            consumers[remotePeerId]?.audioConsumer?.resume()
+                            resumeConsumer(consumerId = consumers[remotePeerId]?.audioConsumer?.id!!)
                         }
                         else -> {
                             Logger.e(
@@ -383,35 +372,30 @@ class CallClient(private val context: Context) {
                 ).collect {
                     when (it) {
                         is RoomApiResult.Success -> {
-                            runBlocking {
-                                val response = it.value
-                                val videoConsumer = runBlocking {
-                                    recvTransport?.consume(
-                                        { /*videoConsumer ->
+                            val response = it.value
+                            val videoConsumer = recvTransport?.consume(
+                                { /*videoConsumer ->
                                             videoConsumer.close()
                                             consumers[remotePeerId] =
                                                 consumers[remotePeerId]!!.copy(videoConsumer = null)
                                             if (consumers[remotePeerId]?.audioConsumer == null) {
                                                 consumers.remove(remotePeerId)
                                             }
-                                            runBlocking {
-                                                closeConsumer(consumerId = videoConsumer.id)
-                                            }*/
-                                        },
-                                        response.id, response.producerId, response.kind,
-                                        json.encodeToString(response.rtpParameters), null
-                                    )
-                                }
-                                consumers[remotePeerId] = MediaConsumer(
-                                    remotePeerId = remotePeerId,
-                                    videoConsumer = videoConsumer,
-                                    audioConsumer = consumers[remotePeerId]?.audioConsumer
-                                )
+                                            closeConsumer(consumerId = videoConsumer.id)
+                                            */
+                                },
+                                response.id, response.producerId, response.kind,
+                                json.encodeToString(response.rtpParameters), null
+                            )
+                            consumers[remotePeerId] = MediaConsumer(
+                                remotePeerId = remotePeerId,
+                                videoConsumer = videoConsumer,
+                                audioConsumer = consumers[remotePeerId]?.audioConsumer
+                            )
 
-                                resumeConsumer(consumerId = consumers[remotePeerId]?.videoConsumer?.id!!)
-                                consumers[remotePeerId]?.videoConsumer?.resume()
-                                toggleVideoSink(remotePeerId = remotePeerId, enable = true)
-                            }
+                            resumeConsumer(consumerId = consumers[remotePeerId]?.videoConsumer?.id!!)
+                            consumers[remotePeerId]?.videoConsumer?.resume()
+                            toggleVideoSink(remotePeerId = remotePeerId, enable = true)
                         }
                         else -> {
                             Logger.e(
@@ -639,29 +623,25 @@ class CallClient(private val context: Context) {
 
     @OptIn(ExperimentalSerializationApi::class)
     fun createDeviceSendTransport(options: TransportOptions) {
-        sendTransport = runBlocking {
-            mediasoupDevice.createSendTransport(
-                sendTransportListener,
-                options.id,
-                json.encodeToString(options.iceParameters),
-                json.encodeToString(options.iceCandidates),
-                json.encodeToString(options.dtlsParameters)
-            )
-        }
+        sendTransport = mediasoupDevice.createSendTransport(
+            sendTransportListener,
+            options.id,
+            json.encodeToString(options.iceParameters),
+            json.encodeToString(options.iceCandidates),
+            json.encodeToString(options.dtlsParameters)
+        )
     }
 
     @OptIn(ExperimentalSerializationApi::class)
     fun createDeviceRecvTransport(options: TransportOptions) {
-        recvTransport = runBlocking {
-            mediasoupDevice.createRecvTransport(
-                recvTransportListener,
-                options.id,
-                json.encodeToString(options.iceParameters),
-                json.encodeToString(options.iceCandidates),
-                json.encodeToString(options.dtlsParameters),
-                null
-            )
-        }
+        recvTransport = mediasoupDevice.createRecvTransport(
+            recvTransportListener,
+            options.id,
+            json.encodeToString(options.iceParameters),
+            json.encodeToString(options.iceCandidates),
+            json.encodeToString(options.dtlsParameters),
+            null
+        )
     }
 
     private val videoProduceListener = Producer.Listener {
@@ -679,7 +659,7 @@ class CallClient(private val context: Context) {
     private val sendTransportListener = object : SendTransport.Listener {
         override fun onConnect(transport: Transport, dtlsParameters: String) {
             Log.d(TAG, "onConnect: $dtlsParameters")
-            runBlocking {
+            ioScope.launch {
                 connectTransport(transport = transport, dtlsParameters = dtlsParameters)
             }
         }
@@ -696,7 +676,7 @@ class CallClient(private val context: Context) {
         ): String {
             //FIXME -- Find out how to get the producerId
 
-            runBlocking {
+            ioScope.launch {
                 sendTrack(
                     transportId = transport?.id!!,
                     kind = kind!!,
@@ -713,7 +693,7 @@ class CallClient(private val context: Context) {
     private val recvTransportListener = object : RecvTransport.Listener {
         override fun onConnect(transport: Transport, dtlsParameters: String) {
             Log.d(TAG, "onConnect: $dtlsParameters")
-            runBlocking {
+            ioScope.launch {
                 connectTransport(transport = transport, dtlsParameters = dtlsParameters)
             }
         }
