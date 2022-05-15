@@ -5,10 +5,8 @@ const val gradleVersion = "7.1.1"
 val jvmSourceCompatibility = JavaVersion.VERSION_1_8
 val jvmTargetCompatibility = JavaVersion.VERSION_1_8
 const val javaTarget = "1.8"
-const val composeVersion = "1.1.1"
 const val jUnit5Plugin = "1.8.2.0"
 const val hilt = "2.41"
-const val kotlinCompilerExtension = "1.2.0-alpha05"
 
 object AndroidSdk {
     const val compileSdk = 31
@@ -43,36 +41,17 @@ object AndroidLibraries {
     private object Versions {
         const val coreKtx = "1.7.0"
         const val lifecycleRuntimeKtx = "2.4.1"
-        const val activityCompose = "1.4.0"
-        const val navigationCompose = "2.4.1"
-        const val constraintLayoutCompose = "1.0.0-beta02"
         const val dataStore = "1.0.0"
-        const val hiltNavCompose = "1.0.0"
-        const val lifecycleCompose = "1.1.1"
         const val accompanistNavigationAnimation = "0.23.1"
         const val appCompat = "1.4.1"
     }
 
     const val coreKtx = "androidx.core:core-ktx:${Versions.coreKtx}"
-    const val composeUi = "androidx.compose.ui:ui:$composeVersion"
-    const val composeMaterial = "androidx.compose.material:material:$composeVersion"
-    const val composeToolingPreview =
-        "androidx.compose.ui:ui-tooling-preview:$composeVersion"
     const val lifecycleRuntimeKtx =
         "androidx.lifecycle:lifecycle-runtime-ktx:${Versions.lifecycleRuntimeKtx}"
-    const val activityCompose = "androidx.activity:activity-compose:${Versions.activityCompose}"
-    const val navigationCompose =
-        "androidx.navigation:navigation-compose:${Versions.navigationCompose}"
-    const val constraintCompose =
-        "androidx.constraintlayout:constraintlayout-compose:${Versions.constraintLayoutCompose}"
-    const val hiltAndroid = "com.google.dagger:hilt-android:$hilt"
-    const val hiltAndroidCompiler = "com.google.dagger:hilt-android-compiler:$hilt"
     const val dataStore = "androidx.datastore:datastore:${Versions.dataStore}"
     const val dataStorePreferences =
         "androidx.datastore:datastore-preferences:${Versions.dataStore}"
-    const val hiltNavCompose = "androidx.hilt:hilt-navigation-compose:${Versions.hiltNavCompose}"
-    const val lifecycleCompose =
-        "androidx.compose.runtime:runtime-livedata:${Versions.lifecycleCompose}"
     const val accompanistNavigationAnimation =
         "com.google.accompanist:accompanist-navigation-animation:${Versions.accompanistNavigationAnimation}"
     const val appCompat =
@@ -91,6 +70,7 @@ object OtherLibraries {
         const val kotlinSerialization = "1.2.2"
         const val loggingInterceptor = "4.9.3"
         const val mediasoupAndroid = "3.0.8-beta-3"
+        const val materialDialog = "3.3.0"
     }
 
     const val coroutinesAndroid =
@@ -107,6 +87,7 @@ object OtherLibraries {
         "com.squareup.okhttp3:logging-interceptor:${Versions.loggingInterceptor}"
     const val mediasoupAndroid =
         "org.mediasoup.droid:mediasoup-client:${Versions.mediasoupAndroid}"
+    const val materialDialog = "com.afollestad.material-dialogs:core:${Versions.materialDialog}"
 }
 
 object TestingLibraries {
@@ -125,9 +106,6 @@ object TestingLibraries {
     const val jUnit5Params = "org.junit.jupiter:junit-jupiter-params:${Versions.jUnit5}"
     const val androidJUnit = "androidx.test.ext:junit:${Versions.androidJUnit}"
     const val espresso = "androidx.test.espresso:espresso-core:${Versions.espresso}"
-    const val composeJUnit = "androidx.compose.ui:ui-test-junit4:$composeVersion"
-    const val composeUiTooling = "androidx.compose.ui:ui-tooling:$composeVersion"
-    const val composeUiTestManifest = "androidx.compose.ui:ui-test-manifest:$composeVersion"
     const val mockitoCore = "org.mockito:mockito-core:${Versions.mockitoCore}"
     const val mockitoCoreInline = "org.mockito:mockito-inline:${Versions.mockitoCore}"
     const val mockitoKotlin = "org.mockito.kotlin:mockito-kotlin:${Versions.mockitoKotlin}"

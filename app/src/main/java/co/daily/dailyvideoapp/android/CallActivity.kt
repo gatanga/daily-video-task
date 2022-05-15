@@ -5,10 +5,13 @@ import android.os.Handler
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AlertDialog.Builder
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import co.daily.sdk.CallClient
+import com.afollestad.materialdialogs.MaterialDialog
+import com.afollestad.materialdialogs.customview.customView
+import com.google.android.material.checkbox.MaterialCheckBox
+import com.google.android.material.textview.MaterialTextView
 import kotlinx.coroutines.*
 import org.webrtc.SurfaceViewRenderer
 
@@ -19,6 +22,7 @@ class CallActivity : AppCompatActivity() {
     private lateinit var callClient: CallClient
     val handler = Handler()
     private val ioScope = CoroutineScope(Job() + Dispatchers.IO)
+    private val mainScope = CoroutineScope(Job() + Dispatchers.Main)
     private var localAudioOn = true
     private var localVideoOn = true
     private var remoteAudioOn = true
@@ -54,72 +58,95 @@ class CallActivity : AppCompatActivity() {
     }
 
     private fun showMediaStreamToggleDialog() {
-        val alertDialog: AlertDialog.Builder = Builder(this@CallActivity)
-        val items = arrayOf(
-            getString(R.string.local_audio),
-            getString(R.string.local_video),
-            getString(R.string.subscribe_to_remote_audio),
-            getString(R.string.subscribe_to_remote_video)
-        )
-        val checkedItems =
-            booleanArrayOf(localAudioOn, localVideoOn, remoteAudioOn, remoteVideoOn)
-        alertDialog.setMultiChoiceItems(
-            items, checkedItems
-        ) { _, which, isChecked ->
-            when (which) {
-                0 -> {
-                    localAudioOn = isChecked
-                    if (!isChecked) {
-                        ioScope.launch {
-                            callClient.muteLocalAudio()
-                        }
-                    } else {
-                        ioScope.launch {
-                            callClient.unMuteLocalAudio()
-                        }
-                    }
+        val remoteAudioAvailable = callClient.remoteAudioAvailable
+        val remoteVideoAvailable = callClient.remoteVideoAvailable
+        val dialog = MaterialDialog(this).show {
+            customView(R.layout.call_options, /*scrollable = true, */horizontalPadding = true)
+        }
+
+        val localAudioCheckBox =
+            dialog.view.findViewById<MaterialCheckBox>(R.id.mute_local_audio)
+        val localAudioText =
+            dialog.view.findViewById<MaterialTextView>(R.id.mute_local_audio_text)
+
+        val localVideoCheckBox =
+            dialog.view.findViewById<MaterialCheckBox>(R.id.pause_local_video)
+        val localVideoText =
+            dialog.view.findViewById<MaterialTextView>(R.id.pause_local_video_text)
+
+        val remoteAudioCheckBox =
+            dialog.view.findViewById<MaterialCheckBox>(R.id.mute_remote_audio)
+        val remoteAudioText =
+            dialog.view.findViewById<MaterialTextView>(R.id.mute_remote_audio_text)
+
+        if (remoteAudioAvailable != true) {
+            remoteAudioCheckBox.visibility = View.GONE
+            remoteAudioText.visibility = View.GONE
+        }
+
+        val remoteVideoCheckBox =
+            dialog.view.findViewById<MaterialCheckBox>(R.id.pause_remote_video)
+        val remoteVideoText =
+            dialog.view.findViewById<MaterialTextView>(R.id.pause_remote_video_text)
+
+        if (remoteVideoAvailable != true) {
+            remoteVideoCheckBox.visibility = View.GONE
+            remoteVideoText.visibility = View.GONE
+        }
+
+        localAudioCheckBox.isChecked = localAudioOn
+        localVideoCheckBox.isChecked = localVideoOn
+        remoteAudioCheckBox.isChecked = remoteAudioOn && (remoteAudioAvailable == true)
+        remoteVideoCheckBox.isChecked = remoteVideoOn && (remoteVideoAvailable == true)
+
+        localAudioCheckBox.setOnCheckedChangeListener { _, checked ->
+            localAudioOn = checked
+            if (!checked) {
+                mainScope.launch {
+                    callClient.muteLocalAudio()
                 }
-                1 -> {
-                    localVideoOn = isChecked
-                    if (!isChecked) {
-                        ioScope.launch {
-                            callClient.pauseLocalVideo()
-                        }
-                    } else {
-                        ioScope.launch {
-                            callClient.unPauseLocalVideo()
-                        }
-                    }
-                }
-                2 -> {
-                    remoteAudioOn = isChecked
-                    if (!isChecked) {
-                        ioScope.launch {
-                            callClient.muteRemoteAudio()
-                        }
-                    } else {
-                        ioScope.launch {
-                            callClient.unMuteRemoteAudio()
-                        }
-                    }
-                }
-                3 -> {
-                    remoteVideoOn = isChecked
-                    if (!isChecked) {
-                        ioScope.launch {
-                            callClient.pauseRemoteVideo()
-                        }
-                    } else {
-                        ioScope.launch {
-                            callClient.unPauseRemoteVideo()
-                        }
-                    }
+            } else {
+                mainScope.launch {
+                    callClient.unMuteLocalAudio()
                 }
             }
         }
-        val alert: AlertDialog = alertDialog.create()
-        alert.setCanceledOnTouchOutside(true)
-        alert.show()
+        localVideoCheckBox.setOnCheckedChangeListener { _, checked ->
+            localVideoOn = checked
+            if (!checked) {
+                mainScope.launch {
+                    callClient.pauseLocalVideo()
+                }
+            } else {
+                mainScope.launch {
+                    callClient.unPauseLocalVideo()
+                }
+            }
+        }
+        remoteAudioCheckBox.setOnCheckedChangeListener { _, checked ->
+            remoteAudioOn = checked
+            if (!checked) {
+                mainScope.launch {
+                    callClient.muteRemoteAudio()
+                }
+            } else {
+                mainScope.launch {
+                    callClient.unMuteRemoteAudio()
+                }
+            }
+        }
+        remoteVideoCheckBox.setOnCheckedChangeListener { _, checked ->
+            remoteVideoOn = checked
+            if (!checked) {
+                mainScope.launch {
+                    callClient.pauseRemoteVideo()
+                }
+            } else {
+                mainScope.launch {
+                    callClient.unPauseRemoteVideo()
+                }
+            }
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

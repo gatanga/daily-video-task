@@ -81,6 +81,7 @@ dependencies {
     implementation(OtherLibraries.kotlinSerialization)
     implementation(OtherLibraries.loggingInterceptor)
     implementation(OtherLibraries.mediasoupAndroid)
+    implementation(OtherLibraries.materialDialog)
 
     /***********************
      ** Testing Libraries

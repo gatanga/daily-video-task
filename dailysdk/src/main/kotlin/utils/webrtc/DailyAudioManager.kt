@@ -34,7 +34,7 @@ class DailyAudioManager private constructor(
     }
 
     private var initialized = false
-    private val audioManager: AudioManager
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var savedAudioMode: Int = AudioManager.MODE_INVALID
     private var savedIsSpeakerPhoneOn = false
     private var savedIsMicrophoneMute = false
@@ -273,7 +273,6 @@ class DailyAudioManager private constructor(
     }
 
     init {
-        audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         useSpeakerphone = "true"
         defaultAudioDevice = AudioDevice.SPEAKER_PHONE
     }

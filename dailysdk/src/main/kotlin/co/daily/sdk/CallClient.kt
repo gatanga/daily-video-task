@@ -137,7 +137,7 @@ class CallClient(private val context: Context) {
     @OptIn(ExperimentalSerializationApi::class)
     suspend fun joinRoom() {
         Session.reset()
-        audioManager?.setAudioDevice(DailyAudioManager.AudioDevice.SPEAKER_PHONE)
+        audioManager?.setAudioDevice(DailyAudioManager.AudioDevice.EARPIECE)
         session = Session.instance()
         repository.joinRoom(request = BaseRequest(peerId = session.peerId))
             .collect {
@@ -166,7 +166,7 @@ class CallClient(private val context: Context) {
 
         countDownTimer = object : CountDownTimer(9_000_000_000L, 2_000L) {
             override fun onTick(millisUntilFinished: Long) {
-                runBlocking {
+                ioScope.launch {
                     syncPeers()
                 }
             }
@@ -337,12 +337,12 @@ class CallClient(private val context: Context) {
             } else {
                 consumers[remotePeerId]?.audioConsumer?.let {
                     if (it.isPaused && !camAudio.paused) {
-                        resumeConsumer(consumerId = it.id)
-                        it.resume()
-                    } else if (!it.isPaused && camAudio.paused) {
                         if (!remoteAudioAllowed) {
                             return
                         }
+                        resumeConsumer(consumerId = it.id)
+                        it.resume()
+                    } else if (!it.isPaused && camAudio.paused) {
                         pauseConsumer(consumerId = it.id)
                         it.pause()
                     }
@@ -722,6 +722,10 @@ class CallClient(private val context: Context) {
             Logger.d(TAG, "onConnectionStateChange: $connectionState recvTransportListener")
         }
     }
+
+    val remoteAudioAvailable get() = consumers.values.firstOrNull()?.audioConsumer?.id?.isNotEmpty()
+
+    val remoteVideoAvailable get() = consumers.values.firstOrNull()?.videoConsumer?.id?.isNotEmpty()
 
     private suspend fun toggleLocalAudio(enable: Boolean) {
         if (enable) {
