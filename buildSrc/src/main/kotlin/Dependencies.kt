@@ -71,6 +71,7 @@ object OtherLibraries {
         const val loggingInterceptor = "4.9.3"
         const val mediasoupAndroid = "3.0.8-beta-3"
         const val materialDialog = "3.3.0"
+        const val permissions = "3.3.0"
     }
 
     const val coroutinesAndroid =
@@ -88,6 +89,7 @@ object OtherLibraries {
     const val mediasoupAndroid =
         "org.mediasoup.droid:mediasoup-client:${Versions.mediasoupAndroid}"
     const val materialDialog = "com.afollestad.material-dialogs:core:${Versions.materialDialog}"
+    const val permissions = "com.github.fondesa:kpermissions:${Versions.permissions}"
 }
 
 object TestingLibraries {

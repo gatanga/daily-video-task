@@ -1,6 +1,8 @@
 package utils.webrtc
 
 import android.content.Context
+import android.util.DisplayMetrics
+import android.util.Log
 import org.mediasoup.droid.Logger
 import org.webrtc.*
 import providers.webrtc.EglBaseProvider
@@ -11,6 +13,8 @@ class WebRtcMediaUtils {
     private var cameraVideoCapturer: CameraVideoCapturer? = null
     private var audioSource: AudioSource? = null
     private var videoSource: VideoSource? = null
+    private var width: Int? = null
+    private var height: Int? = null
 
     val mediaStream: MediaStream =
         PeerConnectionProvider.instance().peerConnectionFactory!!.createLocalMediaStream(
@@ -18,7 +22,7 @@ class WebRtcMediaUtils {
         )
 
     @Throws(Exception::class)
-    fun createCameraCapturer(context: Context) {
+    fun createCameraCapturer(context: Context, frontFacing: Boolean = true) {
         //This app is targeting sdk 24. If we need to support Android versions lower than Lollipop,
         // then we need to add the logic to select between Camera1Enumerator and Camera2Enumerator
         val cameraEnumerator = Camera2Enumerator(context)
@@ -26,13 +30,21 @@ class WebRtcMediaUtils {
         //I am using the front camera only for now. If you would like the feature to switch between
         // front and back facing camera, then change the logic below.
         cameraVideoCapturer = cameraEnumerator.createCapturer(
-            cameraEnumerator.deviceNames.first { cameraEnumerator.isFrontFacing(it) },
+            cameraEnumerator.deviceNames.first {
+                if (frontFacing) cameraEnumerator.isFrontFacing(it) else !cameraEnumerator.isFrontFacing(
+                    it
+                )
+            },
             MediaCapturerEventHandler()
         )
 
         if (cameraVideoCapturer == null) {
             throw Exception("Failed to get Camera Device")
         }
+    }
+
+    fun switchCamera() {
+        cameraVideoCapturer?.switchCamera(CameraSwitchHandler())
     }
 
     fun createAudioSource() {
@@ -47,14 +59,9 @@ class WebRtcMediaUtils {
         Logger.d(TAG, "Audio source created")
     }
 
-    fun createVideoSource(context: Context) {
-        if (videoSource != null) {
-            return
-        }
+    fun createVideoSource(context: Context, frontFacing: Boolean) {
         Logger.d(TAG, "creating video source")
-        if (cameraVideoCapturer == null) {
-            createCameraCapturer(context = context)
-        }
+        createCameraCapturer(context = context, frontFacing = frontFacing)
 
         WebRtcThreadUtils.threadChecker.checkIsOnValidThread()
         videoSource =
@@ -72,7 +79,7 @@ class WebRtcMediaUtils {
 
         //We should set different values for width and height depending on the type of video
         // we want to send
-        cameraVideoCapturer?.startCapture(640, 480, 30)
+        cameraVideoCapturer?.startCapture(640, 480, 60)
         Logger.d(TAG, "Video source created: ${cameraVideoCapturer != null}")
     }
 
@@ -129,12 +136,29 @@ class WebRtcMediaUtils {
         }
     }
 
+    private class CameraSwitchHandler : CameraVideoCapturer.CameraSwitchHandler {
+        override fun onCameraSwitchDone(p0: Boolean) {
+            Log.d(TAG, "onCameraSwitchDone: $p0")
+        }
+
+        override fun onCameraSwitchError(p0: String?) {
+            Log.d(TAG, "onCameraSwitchError: $p0")
+        }
+    }
+
     fun clear() {
         audioSource?.dispose()
         audioSource = null
         videoSource?.dispose()
         videoSource = null
-        mediaStream.dispose()
+        cameraVideoCapturer?.stopCapture()
+        cameraVideoCapturer?.dispose()
+        cameraVideoCapturer = null
+    }
+
+    fun setScreenDimensions(width: Int, height: Int) {
+        this.width = width
+        this.height = height
     }
 
     companion object {

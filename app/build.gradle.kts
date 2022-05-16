@@ -82,6 +82,7 @@ dependencies {
     implementation(OtherLibraries.loggingInterceptor)
     implementation(OtherLibraries.mediasoupAndroid)
     implementation(OtherLibraries.materialDialog)
+    implementation(OtherLibraries.permissions)
 
     /***********************
      ** Testing Libraries

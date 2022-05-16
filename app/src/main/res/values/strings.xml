@@ -8,4 +8,6 @@
     <string name="local_video">Local video</string>
     <string name="subscribe_to_remote_audio">Subscribe to remote audio</string>
     <string name="call_settings">Call settings</string>
+    <string name="switch_camera">Switch camera</string>
+    <string name="loudspeaker_normal">Loudspeaker/normal</string>
 </resources>

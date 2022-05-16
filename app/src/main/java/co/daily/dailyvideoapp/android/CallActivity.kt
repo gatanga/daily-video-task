@@ -2,6 +2,7 @@ package co.daily.dailyvideoapp.android
 
 import android.os.Bundle
 import android.os.Handler
+import android.util.DisplayMetrics
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
@@ -34,7 +35,13 @@ class CallActivity : AppCompatActivity() {
         localVideoView = findViewById(R.id.localVideoView)
         remoteVideoView = findViewById(R.id.remoteVideoView)
 
-        callClient = CallClient.instance(context = this)
+        val displayMetrics = DisplayMetrics()
+        windowManager.defaultDisplay.getMetrics(displayMetrics)
+
+        val width = displayMetrics.widthPixels
+        val height = displayMetrics.heightPixels
+
+        callClient = CallClient.instance(context = this, width, height)
         callClient.initializeLocalView(localView = localVideoView)
         callClient.initializeRemoteView(remoteView = remoteVideoView)
 
@@ -100,51 +107,83 @@ class CallActivity : AppCompatActivity() {
         remoteVideoCheckBox.isChecked = remoteVideoOn && (remoteVideoAvailable == true)
 
         localAudioCheckBox.setOnCheckedChangeListener { _, checked ->
-            localAudioOn = checked
-            if (!checked) {
-                mainScope.launch {
-                    callClient.muteLocalAudio()
-                }
-            } else {
-                mainScope.launch {
-                    callClient.unMuteLocalAudio()
-                }
-            }
+            toggleLocalAudio(enable = checked)
+        }
+        localAudioText.setOnClickListener {
+            localAudioCheckBox.isChecked = localAudioOn
+            toggleLocalAudio(enable = localAudioOn)
         }
         localVideoCheckBox.setOnCheckedChangeListener { _, checked ->
-            localVideoOn = checked
-            if (!checked) {
-                mainScope.launch {
-                    callClient.pauseLocalVideo()
-                }
-            } else {
-                mainScope.launch {
-                    callClient.unPauseLocalVideo()
-                }
-            }
+            toggleLocalVideo(enable = checked)
+        }
+        localVideoText.setOnClickListener {
+            localVideoCheckBox.isChecked = localVideoOn
+            toggleLocalVideo(enable = localVideoOn)
         }
         remoteAudioCheckBox.setOnCheckedChangeListener { _, checked ->
-            remoteAudioOn = checked
-            if (!checked) {
-                mainScope.launch {
-                    callClient.muteRemoteAudio()
-                }
-            } else {
-                mainScope.launch {
-                    callClient.unMuteRemoteAudio()
-                }
-            }
+            toggleRemoteAudio(enable = checked)
+        }
+        remoteAudioText.setOnClickListener {
+            remoteAudioCheckBox.isChecked = remoteAudioOn
+            toggleRemoteAudio(enable = remoteAudioOn)
         }
         remoteVideoCheckBox.setOnCheckedChangeListener { _, checked ->
-            remoteVideoOn = checked
-            if (!checked) {
-                mainScope.launch {
-                    callClient.pauseRemoteVideo()
-                }
-            } else {
-                mainScope.launch {
-                    callClient.unPauseRemoteVideo()
-                }
+            toggleRemoteVideo(enable = checked)
+        }
+        remoteVideoText.setOnClickListener {
+            remoteVideoCheckBox.isChecked = remoteVideoOn
+            toggleRemoteVideo(enable = remoteVideoOn)
+        }
+    }
+
+    private fun toggleLocalAudio(enable: Boolean) {
+        localAudioOn = enable
+        if (!enable) {
+            mainScope.launch {
+                callClient.muteLocalAudio()
+            }
+        } else {
+            mainScope.launch {
+                callClient.unMuteLocalAudio()
+            }
+        }
+    }
+
+    private fun toggleLocalVideo(enable: Boolean) {
+        localVideoOn = enable
+        if (!enable) {
+            mainScope.launch {
+                callClient.pauseLocalVideo()
+            }
+        } else {
+            mainScope.launch {
+                callClient.unPauseLocalVideo()
+            }
+        }
+    }
+
+    private fun toggleRemoteAudio(enable: Boolean) {
+        remoteAudioOn = enable
+        if (!enable) {
+            mainScope.launch {
+                callClient.muteRemoteAudio()
+            }
+        } else {
+            mainScope.launch {
+                callClient.unMuteRemoteAudio()
+            }
+        }
+    }
+
+    private fun toggleRemoteVideo(enable: Boolean) {
+        remoteVideoOn = enable
+        if (!enable) {
+            mainScope.launch {
+                callClient.pauseRemoteVideo()
+            }
+        } else {
+            mainScope.launch {
+                callClient.unPauseRemoteVideo()
             }
         }
     }
@@ -162,6 +201,18 @@ class CallActivity : AppCompatActivity() {
                 showMediaStreamToggleDialog()
                 true
             }
+            R.id.switch_camera -> {
+                mainScope.launch {
+                    callClient.replaceVideoTrack()
+                }
+                true
+            }
+            /*R.id.loudspeaker -> {
+                mainScope.launch {
+                    callClient.toggleAudioOutputDevice()
+                }
+                true
+            }*/
             else -> super.onOptionsItemSelected(item)
         }
     }

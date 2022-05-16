@@ -1,168 +1,125 @@
 {
-  "codecs": [
-    {
-      "channels": 2,
-      "clockRate": 48000,
-      "kind": "audio",
-      "mimeType": "audio/opus",
-      "parameters": {
-        "minptime": 10,
-        "useinbandfec": 1
-      },
-      "preferredPayloadType": 100,
-      "rtcpFeedback": [
-        {
-          "parameter": "",
-          "type": "transport-cc"
+  "peers": {
+    "9f658e9304f235ab": {
+      "joinTs": 1652664894487,
+      "lastSeenTs": 1652664975932,
+      "media": {
+        "cam-audio": {
+          "paused": false,
+          "encodings": [
+            {
+              "dtx": false,
+              "ssrc": 4279166755
+            }
+          ]
+        },
+        "cam-video": {
+          "paused": false,
+          "encodings": [
+            {
+              "dtx": false,
+              "ssrc": 1790228406
+            }
+          ]
         }
-      ]
-    },
-    {
-      "clockRate": 90000,
-      "kind": "video",
-      "mimeType": "video/VP8",
-      "parameters": {},
-      "preferredPayloadType": 101,
-      "rtcpFeedback": [
-        {
-          "parameter": "",
-          "type": "goog-remb"
+      },
+      "consumerLayers": {
+        "217d793a-550a-49c4-84f4-069b3a618b3f": {
+          "currentLayer": null,
+          "clientSelectedLayer": null
         },
-        {
-          "parameter": "",
-          "type": "transport-cc"
-        },
-        {
-          "parameter": "fir",
-          "type": "ccm"
-        },
-        {
-          "parameter": "",
-          "type": "nack"
-        },
-        {
-          "parameter": "pli",
-          "type": "nack"
+        "61bb2dd0-6084-4ef7-a987-b2b0d401fdc2": {
+          "currentLayer": null,
+          "clientSelectedLayer": null
         }
-      ]
-    },
-    {
-      "clockRate": 90000,
-      "kind": "video",
-      "mimeType": "video/rtx",
-      "parameters": {
-        "apt": 101
       },
-      "preferredPayloadType": 102,
-      "rtcpFeedback": []
+      "stats": {
+        "1983ea4d-ead2-4d2d-b09f-773235418b68": [
+          {
+            "bitrate": 1757149,
+            "fractionLost": 0,
+            "jitter": 0,
+            "score": 10
+          }
+        ],
+        "217d793a-550a-49c4-84f4-069b3a618b3f": [
+          {
+            "bitrate": 32464,
+            "fractionLost": 1,
+            "score": 10
+          }
+        ],
+        "61bb2dd0-6084-4ef7-a987-b2b0d401fdc2": [
+          {
+            "bitrate": 1784189,
+            "fractionLost": 15,
+            "score": 9
+          }
+        ]
+      }
     },
-    {
-      "clockRate": 90000,
-      "kind": "video",
-      "mimeType": "video/H264",
-      "parameters": {
-        "level-asymmetry-allowed": 1,
-        "packetization-mode": 1,
-        "profile-level-id": "42e01f"
-      },
-      "preferredPayloadType": 105,
-      "rtcpFeedback": [
-        {
-          "parameter": "",
-          "type": "goog-remb"
+    "16d802d25d809758": {
+      "joinTs": 1652664923675,
+      "lastSeenTs": 1652664975006,
+      "media": {
+        "cam-audio": {
+          "paused": false,
+          "encodings": [
+            {
+              "dtx": false,
+              "ssrc": 72177013
+            }
+          ]
         },
-        {
-          "parameter": "",
-          "type": "transport-cc"
-        },
-        {
-          "parameter": "fir",
-          "type": "ccm"
-        },
-        {
-          "parameter": "",
-          "type": "nack"
-        },
-        {
-          "parameter": "pli",
-          "type": "nack"
+        "cam-video": {
+          "paused": false,
+          "encodings": [
+            {
+              "dtx": false,
+              "ssrc": 3073530402
+            }
+          ]
         }
-      ]
-    },
-    {
-      "clockRate": 90000,
-      "kind": "video",
-      "mimeType": "video/rtx",
-      "parameters": {
-        "apt": 105
       },
-      "preferredPayloadType": 106,
-      "rtcpFeedback": []
+      "consumerLayers": {
+        "0eb6a334-76d7-4280-8de2-10b957cd1c2a": {
+          "currentLayer": null,
+          "clientSelectedLayer": null
+        },
+        "9fd21646-93bc-4a50-9cdf-c730434a50ba": {
+          "currentLayer": null,
+          "clientSelectedLayer": null
+        }
+      },
+      "stats": {
+        "6d6002fa-ee63-4f4e-9360-a4663900fc23": [
+          {
+            "bitrate": 1765680,
+            "fractionLost": 0,
+            "jitter": 0,
+            "score": 10
+          }
+        ],
+        "0eb6a334-76d7-4280-8de2-10b957cd1c2a": [
+          {
+            "bitrate": 32941,
+            "fractionLost": 0,
+            "score": 10
+          }
+        ],
+        "9fd21646-93bc-4a50-9cdf-c730434a50ba": [
+          {
+            "bitrate": 1776618,
+            "fractionLost": 0,
+            "score": 10
+          }
+        ]
+      }
     }
-  ],
-  "headerExtensions": [
-    {
-      "direction": "sendrecv",
-      "kind": "audio",
-      "preferredEncrypt": false,
-      "preferredId": 1,
-      "uri": "urn:ietf:params:rtp-hdrext:sdes:mid"
-    },
-    {
-      "direction": "sendrecv",
-      "kind": "video",
-      "preferredEncrypt": false,
-      "preferredId": 1,
-      "uri": "urn:ietf:params:rtp-hdrext:sdes:mid"
-    },
-    {
-      "direction": "sendrecv",
-      "kind": "audio",
-      "preferredEncrypt": false,
-      "preferredId": 4,
-      "uri": "http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time"
-    },
-    {
-      "direction": "sendrecv",
-      "kind": "video",
-      "preferredEncrypt": false,
-      "preferredId": 4,
-      "uri": "http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time"
-    },
-    {
-      "direction": "sendrecv",
-      "kind": "video",
-      "preferredEncrypt": false,
-      "preferredId": 5,
-      "uri": "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01"
-    },
-    {
-      "direction": "sendrecv",
-      "kind": "video",
-      "preferredEncrypt": false,
-      "preferredId": 6,
-      "uri": "http://tools.ietf.org/html/draft-ietf-avtext-framemarking-07"
-    },
-    {
-      "direction": "sendrecv",
-      "kind": "audio",
-      "preferredEncrypt": false,
-      "preferredId": 10,
-      "uri": "urn:ietf:params:rtp-hdrext:ssrc-audio-level"
-    },
-    {
-      "direction": "sendrecv",
-      "kind": "video",
-      "preferredEncrypt": false,
-      "preferredId": 11,
-      "uri": "urn:3gpp:video-orientation"
-    },
-    {
-      "direction": "sendrecv",
-      "kind": "video",
-      "preferredEncrypt": false,
-      "preferredId": 12,
-      "uri": "urn:ietf:params:rtp-hdrext:toffset"
-    }
-  ]
+  },
+  "activeSpeaker": {
+    "producerId": null,
+    "volume": null,
+    "peerId": null
+  }
 }

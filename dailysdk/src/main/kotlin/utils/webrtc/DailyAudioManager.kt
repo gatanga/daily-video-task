@@ -143,6 +143,14 @@ class DailyAudioManager private constructor(
         }
     }
 
+    fun toggleAudioOutputDevice() {
+        if (selectedAudioDevice == AudioDevice.EARPIECE) {
+            setAudioDevice(AudioDevice.EARPIECE)
+        } else {
+            setAudioDevice(AudioDevice.SPEAKER_PHONE)
+        }
+    }
+
     /**
      * Registers receiver for the broadcasted intent when a wired headset is
      * plugged in or unplugged. The received intent will have an extra
@@ -262,6 +270,7 @@ class DailyAudioManager private constructor(
 
     companion object {
         private const val TAG = "DailyAudioManager"
+
         /**
          * Construction
          */

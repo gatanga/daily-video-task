@@ -7,6 +7,7 @@ import android.os.HandlerThread
 import android.os.Looper
 import android.util.Log
 import android.view.View
+import android.widget.Toast
 import androidx.work.WorkManager
 import data.network.models.*
 import data.result.RoomApiResult
@@ -27,7 +28,7 @@ import session.Session
 import utils.webrtc.DailyAudioManager
 import utils.webrtc.WebRtcMediaUtils
 
-class CallClient(private val context: Context) {
+class CallClient(private val context: Context, val width: Int, val height: Int) {
 
     private lateinit var session: Session
     private val ioScope = CoroutineScope(Job() + Dispatchers.IO)
@@ -50,6 +51,9 @@ class CallClient(private val context: Context) {
     private var audioManager: DailyAudioManager? = null
     private var remoteAudioAllowed = true
     private var remoteVideoAllowed = true
+    private var frontFacing = true
+    private var audioConsumerPaused = true
+    private var videoConsumerPaused = true
 
     init {
         reset()
@@ -60,6 +64,7 @@ class CallClient(private val context: Context) {
         workHandler = Handler(workerThread.looper)
         mainHandler = Handler(Looper.getMainLooper())
         audioManager = DailyAudioManager.create(context = context)
+        WebRtcMediaUtils.instance().setScreenDimensions(width = width, height = height)
     }
 
     private fun reset() {
@@ -79,7 +84,7 @@ class CallClient(private val context: Context) {
         remoteVideoView.init(EglBaseProvider.instance().getEglBase().eglBaseContext, null)
 //        remoteVideoView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
 //        remoteVideoView.setEnableHardwareScaler(false)
-//        remoteVideoView.setMirror(true)
+        remoteVideoView.setMirror(true)
     }
 
     fun createLocalMediaTracks() {
@@ -97,11 +102,34 @@ class CallClient(private val context: Context) {
 
     private fun createLocalVideoTrack() {
         runBlocking {
-            WebRtcMediaUtils.instance().createVideoSource(context = context)
+            WebRtcMediaUtils.instance()
+                .createVideoSource(context = context, frontFacing = frontFacing)
         }
         localVideoTrack = WebRtcMediaUtils.instance().createVideoTrack()
         localVideoTrack?.setEnabled(true)
         localVideoTrack?.addSink(localVideoView)
+    }
+
+    fun replaceVideoTrack() {
+        Log.d(TAG, "replaceVideoTrack: $frontFacing")
+        runBlocking {
+            WebRtcMediaUtils.instance().switchCamera()
+        }
+        /*runBlocking {
+            WebRtcMediaUtils.instance()
+                .createVideoSource(context = context, frontFacing = frontFacing)
+        }
+        localVideoTrack?.removeSink(localVideoView)
+        localVideoTrack?.dispose()
+        localVideoTrack = WebRtcMediaUtils.instance().createVideoTrack()
+        localVideoTrack?.setEnabled(true)
+        localVideoTrack?.addSink(localVideoView)
+        videoProducer?.replaceTrack(localVideoTrack)*/
+        frontFacing = !frontFacing
+    }
+
+    fun toggleAudioOutputDevice() {
+        audioManager?.toggleAudioOutputDevice()
     }
 
     @OptIn(ExperimentalSerializationApi::class)
@@ -135,7 +163,7 @@ class CallClient(private val context: Context) {
     @OptIn(ExperimentalSerializationApi::class)
     suspend fun joinRoom() {
         Session.reset()
-        audioManager?.setAudioDevice(DailyAudioManager.AudioDevice.EARPIECE)
+        audioManager?.setAudioDevice(DailyAudioManager.AudioDevice.SPEAKER_PHONE)
         session = Session.instance()
         repository.joinRoom(request = BaseRequest(peerId = session.peerId))
             .collect {
@@ -148,6 +176,14 @@ class CallClient(private val context: Context) {
                     }
                     else -> {
                         Logger.e(TAG, "joinRoom: ", (it as RoomApiResult.Error).exception)
+                        //FIXME -- We should return a proper type here
+                        if (it.exception.message!!.contains("Network")) {
+                            Toast.makeText(
+                                context,
+                                "We could not connect to the server",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
                     }
                 }
             }
@@ -156,7 +192,7 @@ class CallClient(private val context: Context) {
 
     private fun startSyncWork() {
         /*val syncPeriodicWorker =
-            PeriodicWorkRequestBuilder<PeerSyncWorker>(15, TimeUnit.SECONDS).addTag(WORKER_TAG)
+            PeriodicWorkRequestBuilder<PeerSyncWorker>(2, TimeUnit.SECONDS).addTag(WORKER_TAG)
                 .build()
         WorkManager.getInstance(context).enqueue(syncPeriodicWorker)*/
 
@@ -274,9 +310,10 @@ class CallClient(private val context: Context) {
     private suspend fun processRemoteAudio(remotePeerId: String, camAudio: CamAudio) {
         if (camAudio.paused) {
             consumers[remotePeerId]?.audioConsumer?.let {
-                if (!it.isPaused) {
+                if (!audioConsumerPaused) {
                     it.pause()
                     pauseConsumer(consumerId = it.id)
+                    audioConsumerPaused = true
                 }
             }
         } else {
@@ -313,6 +350,7 @@ class CallClient(private val context: Context) {
 
                             consumers[remotePeerId]?.audioConsumer?.resume()
                             resumeConsumer(consumerId = consumers[remotePeerId]?.audioConsumer?.id!!)
+                            audioConsumerPaused = false
                         }
                         else -> {
                             Logger.e(
@@ -325,15 +363,17 @@ class CallClient(private val context: Context) {
                 }
             } else {
                 consumers[remotePeerId]?.audioConsumer?.let {
-                    if (it.isPaused && !camAudio.paused) {
+                    if (audioConsumerPaused && !camAudio.paused) {
                         if (!remoteAudioAllowed) {
                             return
                         }
                         resumeConsumer(consumerId = it.id)
                         it.resume()
-                    } else if (!it.isPaused && camAudio.paused) {
+                        audioConsumerPaused = false
+                    } else if (!audioConsumerPaused && camAudio.paused) {
                         pauseConsumer(consumerId = it.id)
                         it.pause()
+                        audioConsumerPaused = true
                     }
                 }
             }
@@ -348,9 +388,10 @@ class CallClient(private val context: Context) {
         }*/
         if (camVideo.paused) {
             consumers[remotePeerId]?.videoConsumer?.let {
-                if (!it.isPaused) {
+                if (!videoConsumerPaused) {
                     it.pause()
                     pauseConsumer(consumerId = it.id)
+                    videoConsumerPaused = true
                     toggleVideoSink(remotePeerId = remotePeerId, enable = false)
                 }
             }
@@ -395,6 +436,7 @@ class CallClient(private val context: Context) {
 
                             resumeConsumer(consumerId = consumers[remotePeerId]?.videoConsumer?.id!!)
                             consumers[remotePeerId]?.videoConsumer?.resume()
+                            videoConsumerPaused = false
                             toggleVideoSink(remotePeerId = remotePeerId, enable = true)
                         }
                         else -> {
@@ -408,16 +450,18 @@ class CallClient(private val context: Context) {
                 }
             } else {
                 consumers[remotePeerId]?.videoConsumer?.let {
-                    if (it.isPaused && !camVideo.paused) {
+                    if (videoConsumerPaused && !camVideo.paused) {
                         if (!remoteVideoAllowed) {
                             return
                         }
                         resumeConsumer(consumerId = it.id)
                         it.resume()
+                        videoConsumerPaused = false
                         toggleVideoSink(remotePeerId = remotePeerId, enable = true)
-                    } else if (!it.isPaused && camVideo.paused) {
+                    } else if (!videoConsumerPaused && camVideo.paused) {
                         pauseConsumer(consumerId = it.id)
                         it.pause()
+                        videoConsumerPaused = true
                         toggleVideoSink(remotePeerId = remotePeerId, enable = false)
                     }
                 }
@@ -594,17 +638,22 @@ class CallClient(private val context: Context) {
                             } else {*/
                             if (entry.key != session.peerId) {
                                 entry.value.media.camAudio?.let { camAudio ->
-                                    processRemoteAudio(
-                                        remotePeerId = entry.key,
-                                        camAudio = camAudio
-                                    )
+                                    ioScope.launch {
+                                        processRemoteAudio(
+                                            remotePeerId = entry.key,
+                                            camAudio = camAudio
+                                        )
+                                    }
                                 }
 
                                 entry.value.media.camVideo?.let { camVideo ->
-                                    processRemoteVideo(
-                                        remotePeerId = entry.key,
-                                        camVideo = camVideo
-                                    )
+                                    ioScope.launch {
+                                        delay(1_000L)
+                                        processRemoteVideo(
+                                            remotePeerId = entry.key,
+                                            camVideo = camVideo
+                                        )
+                                    }
                                 }
                             }
 //                            }
@@ -741,11 +790,13 @@ class CallClient(private val context: Context) {
             consumers.values.firstOrNull()?.audioConsumer?.let {
                 resumeConsumer(consumerId = it.id)
                 it.resume()
+                audioConsumerPaused = false
             }
         } else {
             consumers.values.firstOrNull()?.audioConsumer?.let {
                 pauseConsumer(consumerId = it.id)
                 it.pause()
+                audioConsumerPaused = true
             }
         }
     }
@@ -756,11 +807,13 @@ class CallClient(private val context: Context) {
             consumers.values.firstOrNull()?.videoConsumer?.let {
                 resumeConsumer(consumerId = it.id)
                 it.resume()
+                videoConsumerPaused = false
             }
         } else {
             consumers.values.firstOrNull()?.videoConsumer?.let {
                 pauseConsumer(consumerId = it.id)
                 it.pause()
+                videoConsumerPaused = true
             }
         }
     }
@@ -863,10 +916,10 @@ class CallClient(private val context: Context) {
         @Volatile
         private var instance: CallClient? = null
 
-        fun instance(context: Context): CallClient =
+        fun instance(context: Context, width: Int, height: Int): CallClient =
             instance ?: synchronized(this) {
                 val newInstance = instance
-                    ?: CallClient(context = context)
+                    ?: CallClient(context = context, width = width, height = height)
                         .also { instance = it }
                 newInstance
             }

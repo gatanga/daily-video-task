@@ -29,12 +29,12 @@ android {
                 getDefaultProguardFile(ProguardFile.textFile),
                 ProguardFile.ruleFile
             )
-//            resValue("string", "API_URL", "http://192.168.100.105:3000/signaling/")
-            resValue("string", "API_URL", "https://daily.radu.app:3000/signaling/")
+            resValue("string", "API_URL", "http://51.210.178.142:3000/signaling/")
+//            resValue("string", "API_URL", "https://daily.radu.app:3000/signaling/")
         }
         debug {
-//            resValue("string", "API_URL", "http://192.168.100.105:3000/signaling/")
-            resValue("string", "API_URL", "https://daily.radu.app:3000/signaling/")
+            resValue("string", "API_URL", "http://51.210.178.142:3000/signaling/")
+//            resValue("string", "API_URL", "https://daily.radu.app:3000/signaling/")
         }
     }
     compileOptions {

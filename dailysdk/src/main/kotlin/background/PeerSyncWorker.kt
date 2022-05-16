@@ -9,11 +9,11 @@ import kotlinx.coroutines.runBlocking
 class PeerSyncWorker(context: Context, workerParams: WorkerParameters) :
     Worker(context, workerParams) {
 
-    private val callClient = CallClient.instance(context)
+//    private val callClient = CallClient.instance(context, width, height)
 
     override fun doWork(): Result {
         runBlocking {
-            callClient.syncPeers()
+//            callClient.syncPeers()
         }
 
         return Result.success()
