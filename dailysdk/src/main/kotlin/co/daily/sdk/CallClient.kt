@@ -10,16 +10,16 @@ import android.view.View
 import android.widget.Toast
 import androidx.work.WorkManager
 import data.network.models.AppData
-import data.network.models.CamAudio
-import data.network.models.CamVideo
-import data.network.models.TransportOptions
 import data.result.RoomApiResult
+import domain.models.IceTransportOptions
+import domain.models.Media
 import domain.repositories.ApiRepository
 import kotlinx.coroutines.*
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.encodeToString
 import org.mediasoup.droid.*
 import org.webrtc.AudioTrack
+import org.webrtc.RendererCommon
 import org.webrtc.SurfaceViewRenderer
 import org.webrtc.VideoTrack
 import providers.network.RetrofitServiceProvider.Companion.json
@@ -75,7 +75,7 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
     fun initializeLocalView(localView: SurfaceViewRenderer) {
         localVideoView = localView
         localVideoView.init(EglBaseProvider.instance().getEglBase().eglBaseContext, null)
-//        localVideoView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+        localVideoView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_BALANCED)
 //        localVideoView.setEnableHardwareScaler(false)
         localVideoView.setMirror(true)
     }
@@ -169,7 +169,7 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
                 when (it) {
                     is RoomApiResult.Success -> {
                         mediasoupDevice = Device()
-                        mediasoupDevice.load(json.encodeToString(it.value.routerRtpCapabilities))
+                        mediasoupDevice.load(it.value)
                     }
                     else -> {
                         Logger.e(TAG, "joinRoom: ", (it as RoomApiResult.Error).exception)
@@ -216,7 +216,7 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
         repository.createTransport(direction = DIRECTION_SEND).collect {
             when (it) {
                 is RoomApiResult.Success -> {
-                    createDeviceSendTransport(it.value.transportOptions)
+                    createDeviceSendTransport(it.value)
                 }
                 else -> {
                     Logger.e(TAG, "createSendTransport: ", (it as RoomApiResult.Error).exception)
@@ -232,7 +232,7 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
         ).collect {
             when (it) {
                 is RoomApiResult.Success -> {
-                    recvTransportConnected = true
+                    recvTransportConnected = it.value
                     Log.d(TAG, "connectTransport: success")
                 }
                 else -> Logger.e(TAG, "connectTransport: ", (it as RoomApiResult.Error).exception)
@@ -246,7 +246,7 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
             .collect {
                 when (it) {
                     is RoomApiResult.Success -> {
-                        createDeviceRecvTransport(options = it.value.transportOptions)
+                        createDeviceRecvTransport(options = it.value)
                     }
                     else -> {
                         Logger.e(
@@ -285,8 +285,8 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
     }
 
     @OptIn(ExperimentalSerializationApi::class)
-    private suspend fun processRemoteAudio(remotePeerId: String, camAudio: CamAudio) {
-        if (camAudio.paused) {
+    private suspend fun processRemoteAudio(remotePeerId: String, audio: Media) {
+        if (audio.paused) {
             consumers[remotePeerId]?.audioConsumer?.let {
                 if (!audioConsumerPaused) {
                     it.pause()
@@ -318,7 +318,7 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
                                         // FIXME -- We should close some consumer(s) here
                                     },
                                     response.id, response.producerId, response.kind,
-                                    json.encodeToString(response.rtpParameters), null
+                                    response.rtpParameters, null
                                 ),
                                 videoConsumer = consumers[remotePeerId]?.videoConsumer
                             )
@@ -338,14 +338,14 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
                 }
             } else {
                 consumers[remotePeerId]?.audioConsumer?.let {
-                    if (audioConsumerPaused && !camAudio.paused) {
+                    if (audioConsumerPaused && !audio.paused) {
                         if (!remoteAudioAllowed) {
                             return
                         }
                         resumeConsumer(consumerId = it.id)
                         it.resume()
                         audioConsumerPaused = false
-                    } else if (!audioConsumerPaused && camAudio.paused) {
+                    } else if (!audioConsumerPaused && audio.paused) {
                         pauseConsumer(consumerId = it.id)
                         it.pause()
                         audioConsumerPaused = true
@@ -356,12 +356,12 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
     }
 
     @OptIn(ExperimentalSerializationApi::class)
-    private suspend fun processRemoteVideo(remotePeerId: String, camVideo: CamVideo) {
+    private suspend fun processRemoteVideo(remotePeerId: String, video: Media) {
         /*if (camVideo.paused == consumers[remotePeerId]?.videoConsumer?.isPaused) {
             Log.d(TAG, "processRemoteVideo: No state change")
             return
         }*/
-        if (camVideo.paused) {
+        if (video.paused) {
             consumers[remotePeerId]?.videoConsumer?.let {
                 if (!videoConsumerPaused) {
                     it.pause()
@@ -398,7 +398,7 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
                                             */
                                 },
                                 response.id, response.producerId, response.kind,
-                                json.encodeToString(response.rtpParameters), null
+                                response.rtpParameters, null
                             )
                             consumers[remotePeerId] = MediaConsumer(
                                 remotePeerId = remotePeerId,
@@ -422,7 +422,7 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
                 }
             } else {
                 consumers[remotePeerId]?.videoConsumer?.let {
-                    if (videoConsumerPaused && !camVideo.paused) {
+                    if (videoConsumerPaused && !video.paused) {
                         if (!remoteVideoAllowed) {
                             return
                         }
@@ -430,7 +430,7 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
                         it.resume()
                         videoConsumerPaused = false
                         toggleVideoSink(remotePeerId = remotePeerId, enable = true)
-                    } else if (!videoConsumerPaused && camVideo.paused) {
+                    } else if (!videoConsumerPaused && video.paused) {
                         pauseConsumer(consumerId = it.id)
                         it.pause()
                         videoConsumerPaused = true
@@ -565,10 +565,10 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
             return
         }
         repository.syncPeers()
-            .collect {
-                when (it) {
+            .collect { response ->
+                when (response) {
                     is RoomApiResult.Success -> {
-                        it.value.peers.entries.forEachIndexed { _, entry ->
+                        response.value.forEach { peer ->
                             /*if ((entry.value.media.camAudio != null || entry.value.media.camVideo != null)
                                 && (consumers.isNotEmpty() || consumers.containsKey(entry.key))) {
                                 Log.d(
@@ -576,24 +576,22 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
                                     "Currently, there is no support for multi-party call: ${entry.key}"
                                 )
                             } else {*/
-                            if (entry.key != Session.peerId) {
-                                entry.value.media.camAudio?.let { camAudio ->
-                                    ioScope.launch {
-                                        processRemoteAudio(
-                                            remotePeerId = entry.key,
-                                            camAudio = camAudio
-                                        )
-                                    }
+                            peer.audio?.let { audio ->
+                                ioScope.launch {
+                                    processRemoteAudio(
+                                        remotePeerId = peer.peerId,
+                                        audio = audio
+                                    )
                                 }
+                            }
 
-                                entry.value.media.camVideo?.let { camVideo ->
-                                    ioScope.launch {
-                                        delay(1_000L)
-                                        processRemoteVideo(
-                                            remotePeerId = entry.key,
-                                            camVideo = camVideo
-                                        )
-                                    }
+                            peer.video?.let { video ->
+                                ioScope.launch {
+                                    delay(1_000L)
+                                    processRemoteVideo(
+                                        remotePeerId = peer.peerId,
+                                        video = video
+                                    )
                                 }
                             }
 //                            }
@@ -603,7 +601,7 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
                         Logger.e(
                             TAG,
                             "syncPeers: ",
-                            (it as RoomApiResult.Error).exception
+                            (response as RoomApiResult.Error).exception
                         )
                     }
                 }
@@ -611,24 +609,24 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
     }
 
     @OptIn(ExperimentalSerializationApi::class)
-    fun createDeviceSendTransport(options: TransportOptions) {
+    fun createDeviceSendTransport(options: IceTransportOptions) {
         sendTransport = mediasoupDevice.createSendTransport(
             sendTransportListener,
             options.id,
-            json.encodeToString(options.iceParameters),
-            json.encodeToString(options.iceCandidates),
-            json.encodeToString(options.dtlsParameters)
+            options.iceParameters,
+            options.iceCandidates,
+            options.dtlsParameters
         )
     }
 
     @OptIn(ExperimentalSerializationApi::class)
-    fun createDeviceRecvTransport(options: TransportOptions) {
+    fun createDeviceRecvTransport(options: IceTransportOptions) {
         recvTransport = mediasoupDevice.createRecvTransport(
             recvTransportListener,
             options.id,
-            json.encodeToString(options.iceParameters),
-            json.encodeToString(options.iceCandidates),
-            json.encodeToString(options.dtlsParameters),
+            options.iceParameters,
+            options.iceCandidates,
+            options.dtlsParameters,
             null
         )
     }

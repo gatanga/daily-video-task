@@ -5,12 +5,19 @@ import data.network.models.*
 import data.network.rest.ApiManager
 import data.network.rest.helper.ApiResponseWrapper
 import data.result.RoomApiResult
+import domain.mappers.options
+import domain.mappers.recvTransportOptions
+import domain.mappers.remotePeers
+import domain.models.IceTransportOptions
+import domain.models.RecvTransportOptions
+import domain.models.RemotePeer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import providers.network.ApiManagerProvider
 import providers.network.RetrofitServiceProvider.Companion.json
 import session.Session
@@ -25,11 +32,18 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
     private val peerId: String = Session.getPeerId(context = context)
     private val request = BaseRequest(peerId = peerId)
 
-    override suspend fun joinRoom(): Flow<RoomApiResult<JoinRoomResponse>> {
-
+    //Ideally, we should create a mapper to map api responses to repo models but
+    // for simplicity I am just returning the routerRtpCapabilities string here
+    override suspend fun joinRoom(): Flow<RoomApiResult<String>> {
         return flow {
             when (val response = apiManager.joinRoom(request = request)) {
-                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value))
+                is ApiResponseWrapper.Success -> emit(
+                    RoomApiResult.Success(
+                        json.encodeToString(
+                            response.value.routerRtpCapabilities
+                        )
+                    )
+                )
                 is ApiResponseWrapper.NetworkError -> emit(
                     RoomApiResult.Error(
                         Exception(
@@ -42,10 +56,16 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
         }.flowOn(dispatcher)
     }
 
-    override suspend fun syncPeers(): Flow<RoomApiResult<SyncPeersResponse>> {
+    override suspend fun syncPeers(): Flow<RoomApiResult<List<RemotePeer>>> {
         return flow {
             when (val response = apiManager.syncPeers(request = request)) {
-                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value))
+                is ApiResponseWrapper.Success -> emit(
+                    RoomApiResult.Success(
+                        response.value.remotePeers(
+                            localPeerId = peerId
+                        )
+                    )
+                )
                 is ApiResponseWrapper.NetworkError -> emit(
                     RoomApiResult.Error(
                         Exception(
@@ -74,13 +94,13 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
         }.flowOn(dispatcher)
     }
 
-    override suspend fun createTransport(direction: String): Flow<RoomApiResult<CreateTransportResponse>> {
+    override suspend fun createTransport(direction: String): Flow<RoomApiResult<IceTransportOptions>> {
         return flow {
             when (val response = apiManager.createTransport(
                 request
                 = CreateTransportRequest(peerId = peerId, direction = direction)
             )) {
-                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value))
+                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value.options()))
                 is ApiResponseWrapper.NetworkError -> emit(
                     RoomApiResult.Error(
                         Exception(
@@ -94,7 +114,7 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
     }
 
     override suspend fun connectTransport(transportId: String, dtlsParameters: String)
-            : Flow<RoomApiResult<ConnectTransportResponse>> {
+            : Flow<RoomApiResult<Boolean>> {
         return flow {
             when (val response = apiManager.connectTransport(
                 request = ConnectTransportRequest(
@@ -103,7 +123,7 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
                     peerId = peerId
                 )
             )) {
-                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value))
+                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value.connected!!))
                 is ApiResponseWrapper.NetworkError -> emit(
                     RoomApiResult.Error(
                         Exception(
@@ -121,7 +141,7 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
         kind: String,
         rtpParameters: String,
         appData: String
-    ): Flow<RoomApiResult<SendTrackResponse>> {
+    ): Flow<RoomApiResult<String>> {
         return flow {
             when (val response = apiManager.sendTrack(
                 request = SendTrackRequest(
@@ -133,7 +153,7 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
                     peerId = peerId
                 )
             )) {
-                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value))
+                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value.id))
                 is ApiResponseWrapper.NetworkError -> emit(
                     RoomApiResult.Error(
                         Exception(
@@ -150,7 +170,7 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
         mediaTag: String,
         mediaPeerId: String,
         rtpCapabilities: String
-    ): Flow<RoomApiResult<ReceiveTrackResponse>> {
+    ): Flow<RoomApiResult<RecvTransportOptions>> {
         return flow {
             when (val response = apiManager.receiveTrack(
                 request = ReceiveTrackRequest(
@@ -160,7 +180,7 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
                     peerId = peerId
                 )
             )) {
-                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value))
+                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value.recvTransportOptions()))
                 is ApiResponseWrapper.NetworkError -> emit(
                     RoomApiResult.Error(
                         Exception(
@@ -173,7 +193,7 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
         }.flowOn(dispatcher)
     }
 
-    override suspend fun resumeConsumer(consumerId: String): Flow<RoomApiResult<ResumeConsumerResponse>> {
+    override suspend fun resumeConsumer(consumerId: String): Flow<RoomApiResult<Boolean?>> {
         return flow {
             when (val response = apiManager.resumeConsumer(
                 request = ResumeConsumerRequest(
@@ -181,7 +201,7 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
                     consumerId = consumerId
                 )
             )) {
-                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value))
+                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value.resumed))
                 is ApiResponseWrapper.NetworkError -> emit(
                     RoomApiResult.Error(
                         Exception(
@@ -194,7 +214,7 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
         }.flowOn(dispatcher)
     }
 
-    override suspend fun resumeProducer(producerId: String): Flow<RoomApiResult<ResumeProducerResponse>> {
+    override suspend fun resumeProducer(producerId: String): Flow<RoomApiResult<Boolean?>> {
         return flow {
             when (val response = apiManager.resumeProducer(
                 request = ResumeProducerRequest(
@@ -202,7 +222,7 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
                     producerId = producerId
                 )
             )) {
-                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value))
+                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value.resumed))
                 is ApiResponseWrapper.NetworkError -> emit(
                     RoomApiResult.Error(
                         Exception(
@@ -215,7 +235,7 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
         }.flowOn(dispatcher)
     }
 
-    override suspend fun pauseConsumer(consumerId: String): Flow<RoomApiResult<PauseConsumerResponse>> {
+    override suspend fun pauseConsumer(consumerId: String): Flow<RoomApiResult<Boolean?>> {
         return flow {
             when (val response = apiManager.pauseConsumer(
                 request = PauseConsumerRequest(
@@ -223,7 +243,7 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
                     consumerId = consumerId
                 )
             )) {
-                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value))
+                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value.paused))
                 is ApiResponseWrapper.NetworkError -> emit(
                     RoomApiResult.Error(
                         Exception(
@@ -236,7 +256,7 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
         }.flowOn(dispatcher)
     }
 
-    override suspend fun pauseProducer(producerId: String): Flow<RoomApiResult<PauseProducerResponse>> {
+    override suspend fun pauseProducer(producerId: String): Flow<RoomApiResult<Boolean?>> {
         return flow {
             when (val response = apiManager.pauseProducer(
                 request = PauseProducerRequest(
@@ -244,7 +264,7 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
                     peerId = peerId
                 )
             )) {
-                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value))
+                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value.paused))
                 is ApiResponseWrapper.NetworkError -> emit(
                     RoomApiResult.Error(
                         Exception(
@@ -257,7 +277,7 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
         }.flowOn(dispatcher)
     }
 
-    override suspend fun closeConsumer(consumerId: String): Flow<RoomApiResult<CloseConsumerResponse>> {
+    override suspend fun closeConsumer(consumerId: String): Flow<RoomApiResult<Boolean?>> {
         return flow {
             when (val response = apiManager.closeConsumer(
                 request = CloseConsumerRequest(
@@ -265,7 +285,7 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
                     peerId = peerId
                 )
             )) {
-                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value))
+                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value.closed))
                 is ApiResponseWrapper.NetworkError -> emit(
                     RoomApiResult.Error(
                         Exception(
@@ -278,14 +298,14 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
         }.flowOn(dispatcher)
     }
 
-    override suspend fun closeProducer(producerId: String): Flow<RoomApiResult<CloseProducerResponse>> {
+    override suspend fun closeProducer(producerId: String): Flow<RoomApiResult<Boolean?>> {
         return flow {
             when (val response = apiManager.closeProducer(
                 request = CloseProducerRequest(
                     producerId = producerId, peerId = peerId
                 )
             )) {
-                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value))
+                is ApiResponseWrapper.Success -> emit(RoomApiResult.Success(response.value.closed))
                 is ApiResponseWrapper.NetworkError -> emit(
                     RoomApiResult.Error(
                         Exception(
@@ -301,10 +321,5 @@ class DailySdkApiRepository(context: Context) : ApiRepository {
     companion object {
         private const val NETWORK_ERROR = "Network error"
         private const val GENERIC_ERROR = "Generic error"
-        private const val VIDEO_MEDIA_TAG = "cam-video"
-        private const val AUDIO_MEDIA_TAG = "cam-audio"
-        private const val DIRECTION_SEND = "send"
-        private const val DIRECTION_RECV = "recv"
-        private const val WORKER_TAG = "PeerSyncWorker"
     }
 }
