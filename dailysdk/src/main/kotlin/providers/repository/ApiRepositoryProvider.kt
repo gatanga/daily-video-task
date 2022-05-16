@@ -1,5 +1,6 @@
 package providers.repository
 
+import android.content.Context
 import domain.repositories.ApiRepository
 import domain.repositories.DailySdkApiRepository
 
@@ -10,10 +11,10 @@ class ApiRepositoryProvider {
         @Volatile
         private var instance: ApiRepository? = null
 
-        fun initializeApiRepository(): ApiRepository =
+        fun initializeApiRepository(context: Context): ApiRepository =
             instance ?: synchronized(this) {
                 val newInstance = instance
-                    ?: DailySdkApiRepository()
+                    ?: DailySdkApiRepository(context = context)
                         .also { instance = it }
                 newInstance
             }

@@ -1,33 +1,20 @@
 package session
 
+import android.annotation.SuppressLint
+import android.content.Context
 import android.provider.Settings
-import org.webrtc.ContextUtils.getApplicationContext
 
-class Session {
+@SuppressLint("HardwareIds")
+object Session {
 
-    //    val uuid = UUID.randomUUID().toString()
-    val uuid = Settings.Secure.getString(getApplicationContext().getContentResolver(), Settings.Secure.ANDROID_ID)
-    val peerId = uuid
-    var rtcpCapabilitiesJson: String? = null
-    var sendTransportJson: String? = null
-    var sendTransportId: String? = null
-    var recvTransportJson: String? = null
-    var recvTransportId: String? = null
+    var peerId: String? = null
 
-    companion object {
-        @Volatile
-        private var instance: Session? = null
+    fun getPeerId(context: Context): String {
+        peerId = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ANDROID_ID
+        )
 
-        fun instance(): Session =
-            instance ?: synchronized(this) {
-                val newInstance = instance
-                    ?: Session()
-                        .also { instance = it }
-                newInstance
-            }
-
-        fun reset() {
-            instance = null
-        }
+        return peerId!!
     }
 }

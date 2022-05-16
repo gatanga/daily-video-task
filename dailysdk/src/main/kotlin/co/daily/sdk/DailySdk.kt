@@ -15,6 +15,6 @@ object DailySdk {
         MediasoupClient.initialize(context.applicationContext)
         RetrofitServiceProvider.initializeRetrofit(context = context)
         ApiManagerProvider.initializeApiManager()
-        ApiRepositoryProvider.initializeApiRepository()
+        ApiRepositoryProvider.initializeApiRepository(context = context)
     }
 }

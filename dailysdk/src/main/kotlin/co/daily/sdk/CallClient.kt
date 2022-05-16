@@ -9,12 +9,14 @@ import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.work.WorkManager
-import data.network.models.*
+import data.network.models.AppData
+import data.network.models.CamAudio
+import data.network.models.CamVideo
+import data.network.models.TransportOptions
 import data.result.RoomApiResult
 import domain.repositories.ApiRepository
 import kotlinx.coroutines.*
 import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import org.mediasoup.droid.*
 import org.webrtc.AudioTrack
@@ -30,7 +32,6 @@ import utils.webrtc.WebRtcMediaUtils
 
 class CallClient(private val context: Context, val width: Int, val height: Int) {
 
-    private lateinit var session: Session
     private val ioScope = CoroutineScope(Job() + Dispatchers.IO)
     private val mainScope = CoroutineScope(Job() + Dispatchers.Main)
     private var repository: ApiRepository
@@ -162,17 +163,13 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
 
     @OptIn(ExperimentalSerializationApi::class)
     suspend fun joinRoom() {
-        Session.reset()
         audioManager?.setAudioDevice(DailyAudioManager.AudioDevice.SPEAKER_PHONE)
-        session = Session.instance()
-        repository.joinRoom(request = BaseRequest(peerId = session.peerId))
+        repository.joinRoom()
             .collect {
                 when (it) {
                     is RoomApiResult.Success -> {
-                        session.rtcpCapabilitiesJson =
-                            json.encodeToString(it.value.routerRtpCapabilities)
                         mediasoupDevice = Device()
-                        mediasoupDevice.load(session.rtcpCapabilitiesJson)
+                        mediasoupDevice.load(json.encodeToString(it.value.routerRtpCapabilities))
                     }
                     else -> {
                         Logger.e(TAG, "joinRoom: ", (it as RoomApiResult.Error).exception)
@@ -216,13 +213,9 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
 
     @OptIn(ExperimentalSerializationApi::class)
     suspend fun createSendTransport() {
-        repository.createTransport(
-            request = CreateTransportRequest(peerId = session.peerId, direction = DIRECTION_SEND)
-        ).collect {
+        repository.createTransport(direction = DIRECTION_SEND).collect {
             when (it) {
                 is RoomApiResult.Success -> {
-                    session.sendTransportId = it.value.transportOptions.id
-                    session.sendTransportJson = json.encodeToString(it.value)
                     createDeviceSendTransport(it.value.transportOptions)
                 }
                 else -> {
@@ -234,13 +227,8 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
 
     @OptIn(ExperimentalSerializationApi::class)
     suspend fun connectTransport(transport: Transport, dtlsParameters: String) {
-        val dtlsParametersObj = json.decodeFromString<DtlsParameters>(dtlsParameters)
         repository.connectTransport(
-            ConnectTransportRequest(
-                transportId = transport.id,
-                dtlsParameters = json.decodeFromString(dtlsParameters),
-                peerId = session.peerId
-            )
+            transportId = transport.id, dtlsParameters = dtlsParameters
         ).collect {
             when (it) {
                 is RoomApiResult.Success -> {
@@ -254,24 +242,21 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
 
     @OptIn(ExperimentalSerializationApi::class)
     suspend fun createRecvTransport() {
-        repository.createTransport(
-            request = CreateTransportRequest(peerId = session.peerId, direction = DIRECTION_RECV)
-        ).collect {
-            when (it) {
-                is RoomApiResult.Success -> {
-                    session.recvTransportId = it.value.transportOptions.id
-                    session.recvTransportJson = json.encodeToString(it.value)
-                    createDeviceRecvTransport(options = it.value.transportOptions)
-                }
-                else -> {
-                    Logger.e(
-                        TAG,
-                        "createRecvTransport: ",
-                        (it as RoomApiResult.Error).exception
-                    )
+        repository.createTransport(direction = DIRECTION_RECV)
+            .collect {
+                when (it) {
+                    is RoomApiResult.Success -> {
+                        createDeviceRecvTransport(options = it.value.transportOptions)
+                    }
+                    else -> {
+                        Logger.e(
+                            TAG,
+                            "createRecvTransport: ",
+                            (it as RoomApiResult.Error).exception
+                        )
+                    }
                 }
             }
-        }
     }
 
     @OptIn(ExperimentalSerializationApi::class)
@@ -282,14 +267,7 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
         appData: String
     ) {
         repository.sendTrack(
-            request = SendTrackRequest(
-                transportId = transportId,
-                kind = kind,
-                rtpParameters = json.decodeFromString(rtpParameters),
-                paused = false,
-                appData = json.decodeFromString(appData),
-                peerId = session.peerId
-            )
+            transportId = transportId, kind = kind, rtpParameters = rtpParameters, appData = appData
         ).collect {
             when (it) {
                 is RoomApiResult.Success -> {
@@ -325,12 +303,9 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
                     return
                 }
                 repository.receiveTrack(
-                    request = ReceiveTrackRequest(
-                        mediaTag = AUDIO_MEDIA_TAG,
-                        mediaPeerId = remotePeerId,
-                        rtpCapabilities = json.decodeFromString(mediasoupDevice.rtpCapabilities),
-                        peerId = session.peerId
-                    )
+                    mediaTag = AUDIO_MEDIA_TAG,
+                    mediaPeerId = remotePeerId,
+                    rtpCapabilities = mediasoupDevice.rtpCapabilities
                 ).collect {
                     when (it) {
                         is RoomApiResult.Success -> {
@@ -404,12 +379,9 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
                     return
                 }
                 repository.receiveTrack(
-                    request = ReceiveTrackRequest(
-                        mediaTag = VIDEO_MEDIA_TAG,
-                        mediaPeerId = remotePeerId,
-                        rtpCapabilities = json.decodeFromString(mediasoupDevice.rtpCapabilities),
-                        peerId = session.peerId
-                    )
+                    mediaTag = VIDEO_MEDIA_TAG,
+                    mediaPeerId = remotePeerId,
+                    rtpCapabilities = mediasoupDevice.rtpCapabilities
                 ).collect {
                     when (it) {
                         is RoomApiResult.Success -> {
@@ -470,12 +442,7 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
     }
 
     private suspend fun closeConsumer(consumerId: String) {
-        repository.closeConsumer(
-            request = CloseConsumerRequest(
-                peerId = session.peerId,
-                consumerId = consumerId
-            )
-        ).collect {
+        repository.closeConsumer(consumerId = consumerId).collect {
             when (it) {
                 is RoomApiResult.Success -> {
                     Log.d("$TAG closeConsumer: ", "Consumer: $consumerId is closed")
@@ -492,12 +459,7 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
     }
 
     private suspend fun pauseProducer(producerId: String) {
-        repository.pauseProducer(
-            request = PauseProducerRequest(
-                peerId = session.peerId,
-                producerId = producerId
-            )
-        ).collect {
+        repository.pauseProducer(producerId = producerId).collect {
             when (it) {
                 is RoomApiResult.Success -> {
                     Log.d("$TAG pauseProducer: ", "Consumer: $producerId is paused")
@@ -514,12 +476,7 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
     }
 
     private suspend fun resumeProducer(producerId: String) {
-        repository.resumeProducer(
-            request = ResumeProducerRequest(
-                peerId = session.peerId,
-                producerId = producerId
-            )
-        ).collect {
+        repository.resumeProducer(producerId = producerId).collect {
             when (it) {
                 is RoomApiResult.Success -> {
                     Log.d("$TAG resumeProducer: ", "Producer: $producerId is paused")
@@ -536,12 +493,7 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
     }
 
     private suspend fun closeProducer(producerId: String) {
-        repository.closeProducer(
-            request = CloseProducerRequest(
-                peerId = session.peerId,
-                producerId = producerId
-            )
-        ).collect {
+        repository.closeProducer(producerId = producerId).collect {
             when (it) {
                 is RoomApiResult.Success -> {
                     Log.d("$TAG closeProducer: ", "Producer: $producerId is closed")
@@ -574,12 +526,7 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
     }
 
     suspend fun resumeConsumer(consumerId: String) {
-        repository.resumeConsumer(
-            request = ResumeConsumerRequest(
-                peerId = session.peerId,
-                consumerId = consumerId
-            )
-        )
+        repository.resumeConsumer(consumerId = consumerId)
             .collect {
                 when (it) {
                     is RoomApiResult.Success -> {
@@ -597,34 +544,27 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
     }
 
     suspend fun pauseConsumer(consumerId: String) {
-        repository.pauseConsumer(
-            request = PauseConsumerRequest(
-                peerId = session.peerId,
-                consumerId = consumerId
-            )
-        )
-            .collect {
-                when (it) {
-                    is RoomApiResult.Success -> {
-                        Log.d("$TAG resumeConsumer: ", "Success")
-                    }
-                    else -> {
-                        Logger.e(
-                            TAG,
-                            "resumeConsumer: ",
-                            (it as RoomApiResult.Error).exception
-                        )
-                    }
+        repository.pauseConsumer(consumerId = consumerId).collect {
+            when (it) {
+                is RoomApiResult.Success -> {
+                    Log.d("$TAG resumeConsumer: ", "Success")
+                }
+                else -> {
+                    Logger.e(
+                        TAG,
+                        "resumeConsumer: ",
+                        (it as RoomApiResult.Error).exception
+                    )
                 }
             }
+        }
     }
 
     suspend fun syncPeers() {
-        if (!::session.isInitialized || session.peerId.isNullOrEmpty()) {
+        if (Session.peerId.isNullOrEmpty()) {
             return
         }
-
-        repository.syncPeers(BaseRequest(peerId = session.peerId))
+        repository.syncPeers()
             .collect {
                 when (it) {
                     is RoomApiResult.Success -> {
@@ -636,7 +576,7 @@ class CallClient(private val context: Context, val width: Int, val height: Int) 
                                     "Currently, there is no support for multi-party call: ${entry.key}"
                                 )
                             } else {*/
-                            if (entry.key != session.peerId) {
+                            if (entry.key != Session.peerId) {
                                 entry.value.media.camAudio?.let { camAudio ->
                                     ioScope.launch {
                                         processRemoteAudio(
